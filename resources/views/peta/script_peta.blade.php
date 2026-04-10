@@ -6,7 +6,8 @@
             wilayah: '',
             mapData: [],
             dashboard: null,
-            infoCollapsed: false
+            infoCollapsed: false,
+            filterCollapsed: true
         },
         map: null,
         mapLayer: null,
@@ -20,7 +21,6 @@
             this.renderTopOverlay();
             this.initMap();
             this.bindFilterEvents();
-            this.syncScopeBadges();
             this.refreshAll();
         },
 
@@ -30,10 +30,11 @@
                 return;
             }
 
-            target.innerHTML = this.buildFilterBarHtml();
+            target.innerHTML = this.buildOverlayHtml();
+            this.syncFilterMeta();
         },
 
-        buildFilterBarHtml: function() {
+        buildOverlayHtml: function() {
             const tahunOptions = (window.petaFilterOptions.tahunList || []).map((tahun) => {
                 const selected = String(tahun) === String(this.state.tahun) ? ' selected' : '';
                 return '<option value="' + this.escapeHtml(tahun) + '"' + selected + '>' + this.escapeHtml(tahun) + '</option>';
@@ -49,7 +50,24 @@
                 return '<option value="' + this.escapeHtml(wilayah) + '"' + selected + '>' + this.escapeHtml(wilayah) + '</option>';
             })).join('');
 
+            const collapsedClass = this.state.filterCollapsed ? ' is-collapsed' : '';
+            const toggleText = this.state.filterCollapsed ? 'Tampilkan Filter' : 'Sembunyikan Filter';
+
             return '' +
+                '<div class="map-overlay-shell">' +
+                '<div class="map-filter-panel' + collapsedClass + '">' +
+                '<div class="map-filter-head">' +
+                '<div class="map-filter-title">' +
+                '<span class="map-filter-title-badge"><i class="bi bi-building"></i></span>' +
+                '<span><strong>Filter Peta PAD Bapenda Jatim</strong><small>Kontrol analisis wilayah dan ekspor data</small></span>' +
+                '</div>' +
+                '<div class="map-filter-tools">' +
+                '<span class="map-badge" id="active_scope_badge">Semua Pemda (Jatim)</span>' +
+                '<span class="map-badge map-badge-primary" id="active_filter_badge">Tahun ' + this.escapeHtml(this.state.tahun || 'Semua Tahun') + '</span>' +
+                '<button id="toggle_filter_panel" type="button" class="map-panel-toggle"><i class="bi bi-layout-sidebar-inset"></i> ' + toggleText + '</button>' +
+                '</div>' +
+                '</div>' +
+                '<div class="map-filter-body">' +
                 '<div class="map-filter-bar">' +
                 '<div class="map-filter-field">' +
                 '<label for="filter_jenis">Jenis Akun</label>' +
@@ -65,7 +83,34 @@
                 '</div>' +
                 '<button id="btn_filter" type="button" class="map-filter-btn"><i class="bi bi-sliders"></i> Terapkan Filter</button>' +
                 '<button type="button" class="map-filter-export export-trigger" data-export-section="ringkasan"><i class="bi bi-file-earmark-excel"></i> Export</button>' +
+                '</div>' +
+                '</div>' +
+                '</div>' +
                 '</div>';
+        },
+
+        bindFilterEvents: function() {
+            const app = this;
+
+            $(document).off('click', '#btn_filter').on('click', '#btn_filter', function() {
+                app.readFilterState();
+                app.refreshAll();
+            });
+
+            $(document).off('change', '#filter_tahun, #filter_jenis, #filter_wilayah').on('change', '#filter_tahun, #filter_jenis, #filter_wilayah', function() {
+                app.readFilterState();
+                app.syncFilterMeta();
+            });
+
+            $(document).off('click', '#toggle_info_panel').on('click', '#toggle_info_panel', function() {
+                app.state.infoCollapsed = !app.state.infoCollapsed;
+                app.refreshInfoPanel();
+            });
+
+            $(document).off('click', '#toggle_filter_panel').on('click', '#toggle_filter_panel', function() {
+                app.state.filterCollapsed = !app.state.filterCollapsed;
+                app.renderTopOverlay();
+            });
         },
 
         initMap: function() {
@@ -100,11 +145,11 @@
                 Hybrid: hybrid
             };
 
-            street.addTo(this.map);
+            satellite.addTo(this.map);
 
             L.control.layers(this.baseLayers, null, {
                 position: 'topright',
-                collapsed: false
+                collapsed: true
             }).addTo(this.map);
 
             const infoControl = L.control({
@@ -121,41 +166,14 @@
             infoControl.addTo(this.map);
         },
 
-        bindFilterEvents: function() {
-            const app = this;
-
-            $(document).off('click', '#btn_filter').on('click', '#btn_filter', function() {
-                app.readFilterState();
-                app.refreshAll();
-            });
-
-            $(document).off('change', '#filter_tahun, #filter_jenis, #filter_wilayah').on('change', '#filter_tahun, #filter_jenis, #filter_wilayah', function() {
-                app.readFilterState();
-                app.syncScopeBadges();
-            });
-
-            $(document).off('click', '#toggle_info_panel').on('click', '#toggle_info_panel', function() {
-                app.state.infoCollapsed = !app.state.infoCollapsed;
-                if (app.state.wilayah) {
-                    const selected = app.findMapDataByWilayah(app.state.wilayah);
-                    if (selected) {
-                        app.renderInfo(selected);
-                        return;
-                    }
-                }
-
-                app.renderDefaultInfo();
-            });
-        },
-
         readFilterState: function() {
             this.state.tahun = $('#filter_tahun').val();
             this.state.jenis = $('#filter_jenis').val();
             this.state.wilayah = $('#filter_wilayah').val();
-            this.syncScopeBadges();
+            this.syncFilterMeta();
         },
 
-        syncScopeBadges: function() {
+        syncFilterMeta: function() {
             $('#active_scope_badge').text(this.state.wilayah || 'Semua Pemda (Jatim)');
             $('#active_filter_badge').text('Tahun ' + (this.state.tahun || 'Semua Tahun') + ' | ' + (this.state.jenis || 'Semua Jenis'));
         },
@@ -180,7 +198,7 @@
                 app.state.mapData = response.data || [];
                 app.renderMap(response);
                 app.renderLegend(response.legend || []);
-                app.renderDefaultInfo();
+                app.refreshInfoPanel();
             }).fail(function() {
                 alert('Gagal memuat data peta.');
             }).always(function() {
@@ -237,7 +255,7 @@
                         click: function() {
                             app.state.wilayah = props.kabupaten || '';
                             $('#filter_wilayah').val(app.state.wilayah);
-                            app.syncScopeBadges();
+                            app.syncFilterMeta();
                             app.syncSelectedLayer();
                             app.focusSelectedWilayah();
                             app.renderInfo(props);
@@ -305,6 +323,18 @@
             this.legendControl.addTo(this.map);
         },
 
+        refreshInfoPanel: function() {
+            if (this.state.wilayah) {
+                const selected = this.findMapDataByWilayah(this.state.wilayah);
+                if (selected) {
+                    this.renderInfo(selected);
+                    return;
+                }
+            }
+
+            this.renderDefaultInfo();
+        },
+
         renderDefaultInfo: function() {
             if (!this.infoControlContent) {
                 return;
@@ -316,7 +346,7 @@
 
             this.infoControlContent.innerHTML =
                 '<div class="map-info-head">' +
-                '<h4>' + this.escapeHtml(this.state.wilayah || 'Ringkasan Jawa Timur') + '</h4>' +
+                '<h4>Ringkasan Jawa Timur</h4>' +
                 '<button id="toggle_info_panel" type="button" class="info-toggle-btn">' + toggleText + '</button>' +
                 '</div>' +
                 '<div class="map-info-body' + collapsedClass + '">' +
@@ -361,7 +391,7 @@
                 '<p>Detail ini mengikuti wilayah yang sedang dipilih pada peta.</p>' +
                 this.buildMapStat('Anggaran', this.formatCurrency(props.total_anggaran)) +
                 this.buildMapStat('Realisasi', this.formatCurrency(props.total_realisasi)) +
-                this.buildMapStat('Selisih', this.formatCurrency((parseFloat(props.total_realisasi || 0) - parseFloat(props.total_anggaran || 0)))) +
+                this.buildMapStat('Selisih', this.formatCurrency(parseFloat(props.total_realisasi || 0) - parseFloat(props.total_anggaran || 0))) +
                 this.buildMapStat('Capaian', this.formatPercent(props.persentase)) +
                 '<div class="map-info-section">' +
                 '<div class="map-info-section-title">Rincian Jenis PAD</div>' +

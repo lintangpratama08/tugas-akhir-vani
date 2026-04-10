@@ -109,7 +109,7 @@ class PetaDashboardService
                     $scope['mode'] === 'province'
                         ? 'Per jenis PAD untuk seluruh pemerintah daerah di Jawa Timur.'
                         : 'Per jenis PAD untuk wilayah yang sedang dipilih.',
-                    'doughnut',
+                    'bar',
                     $perJenis->pluck('label')->all(),
                     [
                         $this->dataset('Anggaran', $perJenis->pluck('anggaran')->all(), 'currency', '#2563eb'),

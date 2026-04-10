@@ -6,6 +6,12 @@
 
 @section('content')
     <div class="page-shell page-shell-map">
+        <section class="page-title-block">
+            <span class="page-title-kicker">Portal Informasi Bapenda Jatim</span>
+            <h1>DASHBOARD PAD JAWA TIMUR</h1>
+            <p>Peta interaktif pendapatan asli daerah untuk monitoring capaian kabupaten/kota di Jawa Timur.</p>
+        </section>
+
         <section class="map-wrapper map-wrapper-full">
             <div id="map_top_overlay" class="map-top-overlay"></div>
             <div id="peta"></div>
