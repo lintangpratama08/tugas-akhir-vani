@@ -41,6 +41,7 @@
             this.renderTable('table_detail_wilayah', payload.tables.detail_wilayah.rows || []);
             $('#detail_akun_title').text(payload.tables.detail_akun.title || 'Detail Akun PAD');
             $('#detail_wilayah_title').text(payload.tables.detail_wilayah.title || 'Detail Wilayah');
+            this.bindDrawerEvents();
         };
 
         app.renderDashboardHeader = function(scope) {
@@ -93,6 +94,10 @@
             const isHorizontal = chart.options && chart.options.indexAxis === 'y';
             const primaryFormat = chart.datasets[0] ? chart.datasets[0].format : 'currency';
             const formattedLabels = (chart.labels || []).map(function(label) {
+                if (isPie) {
+                    return appInstance.limitLabel(label, 22);
+                }
+
                 return isHorizontal ? appInstance.limitLabel(label, 24) : appInstance.wrapLabel(label, 16);
             });
 
@@ -173,7 +178,17 @@
                     plugins: {
                         legend: {
                             display: isPie || chart.datasets.length > 1,
-                            position: isPie ? 'bottom' : 'top'
+                            position: isPie ? 'bottom' : 'top',
+                            labels: {
+                                boxWidth: 12,
+                                boxHeight: 12,
+                                padding: isPie ? 14 : 12,
+                                usePointStyle: isPie,
+                                pointStyle: 'rectRounded',
+                                font: {
+                                    size: isPie ? 11 : 12
+                                }
+                            }
                         },
                         tooltip: {
                             callbacks: {
@@ -223,11 +238,27 @@
                 return this.formatPercent(value);
             }
 
+            if (/penduduk/i.test(header)) {
+                return this.formatNumber(value);
+            }
+
+            if (/pad per/i.test(header)) {
+                return this.formatCurrency(value);
+            }
+
             if (/anggaran|realisasi|selisih/i.test(header)) {
                 return this.formatCurrency(value);
             }
 
             return value;
+        };
+
+        app.formatNumber = function(value) {
+            const number = parseFloat(value || 0);
+            return number.toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
         };
 
         app.resolvePerformanceLabel = function(percent) {
@@ -246,7 +277,7 @@
             }
 
             if (format === 'currency') {
-                return 'Rp ' + value;
+                return this.formatShortCurrency(value);
             }
 
             return value;
@@ -262,6 +293,30 @@
             }
 
             return value;
+        };
+
+        app.formatShortCurrency = function(value) {
+            const number = parseFloat(value || 0);
+            const absolute = Math.abs(number);
+
+            if (absolute >= 1000000000) {
+                return 'Rp ' + (number / 1000000000).toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 1
+                }) + ' M';
+            }
+
+            if (absolute >= 1000000) {
+                return 'Rp ' + (number / 1000000).toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 1
+                }) + ' Jt';
+            }
+
+            return 'Rp ' + number.toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
         };
 
         app.wrapLabel = function(label, maxChars) {
@@ -324,13 +379,112 @@
                     section: section,
                     tahun: appInstance.state.tahun,
                     jenis: appInstance.state.jenis,
-                    wilayah: appInstance.state.wilayah
+                    wilayah: appInstance.state.wilayah,
+                    kecamatan: appInstance.state.kecamatan
                 });
 
                 window.open(window.petaDashboardConfig.exportUrl + '?' + query, '_blank');
             });
         };
 
+        app.bindDrawerEvents = function() {
+            const appInstance = this;
+
+            $(document).off('click', '.dashboard-drawer-trigger').on('click', '.dashboard-drawer-trigger', function() {
+                const section = $(this).data('drawer-section');
+                appInstance.openDrawer(section);
+            });
+
+            $(document).off('click', '#dashboard_drawer_close, #dashboard_drawer_backdrop').on('click', '#dashboard_drawer_close, #dashboard_drawer_backdrop', function() {
+                appInstance.closeDrawer();
+            });
+        };
+
+        app.openDrawer = function(section) {
+            const payload = this.resolveDrawerPayload(section);
+
+            $('#drawer_title').text(payload.title);
+            $('#drawer_description').text(payload.description);
+            $('#drawer_export_button').attr('data-export-section', payload.exportSection);
+            $('#drawer_summary_grid').html(payload.summaryCards.map((card) => {
+                return '<div class="drawer-stat-card"><span>' + this.escapeHtml(card.label) + '</span><strong>' + this.escapeHtml(card.value) + '</strong></div>';
+            }).join(''));
+
+            this.renderTable('drawer_table', payload.rows);
+
+            $('#dashboard_drawer, #dashboard_drawer_backdrop').addClass('is-open');
+            $('#dashboard_drawer').attr('aria-hidden', 'false');
+        };
+
+        app.closeDrawer = function() {
+            $('#dashboard_drawer, #dashboard_drawer_backdrop').removeClass('is-open');
+            $('#dashboard_drawer').attr('aria-hidden', 'true');
+        };
+
+        app.resolveDrawerPayload = function(section) {
+            const dashboard = this.state.dashboard || {};
+            const scope = dashboard.scope || {};
+            const summary = dashboard.summary || {};
+            const charts = dashboard.charts || [];
+            const tables = dashboard.tables || {};
+            let payload = {
+                title: 'Detail Dashboard',
+                description: 'Rincian analitik dan data mentah yang bisa diunduh.',
+                exportSection: section || 'ringkasan',
+                rows: [],
+                summaryCards: [
+                    { label: 'Lingkup', value: scope.label || 'Jawa Timur' },
+                    { label: 'Anggaran', value: this.formatCurrency(summary.total_anggaran || 0) },
+                    { label: 'Realisasi', value: this.formatCurrency(summary.total_realisasi || 0) },
+                    { label: 'Capaian', value: this.formatPercent(summary.persentase || 0) }
+                ]
+            };
+
+            if (section === 'ringkasan') {
+                payload.title = 'Ringkasan Dashboard PAD';
+                payload.description = 'Ikhtisar capaian untuk filter aktif beserta angka dasar analisis.';
+                payload.rows = [{
+                    'Lingkup': scope.label || 'Jawa Timur',
+                    'Induk': scope.parent || 'Jawa Timur',
+                    'Anggaran': summary.total_anggaran || 0,
+                    'Realisasi': summary.total_realisasi || 0,
+                    'Selisih': summary.selisih || 0,
+                    'Persentase (%)': summary.persentase || 0
+                }];
+                return payload;
+            }
+
+            const chart = charts.find((item) => item.key === section);
+            if (chart) {
+                payload.title = chart.title || payload.title;
+                payload.description = chart.description || payload.description;
+                payload.rows = chart.export && chart.export.rows ? chart.export.rows : [];
+                payload.summaryCards = [
+                    { label: 'Lingkup', value: scope.label || 'Jawa Timur' },
+                    { label: 'Jumlah Label', value: String((chart.labels || []).length) },
+                    { label: 'Dataset', value: String((chart.datasets || []).length) },
+                    { label: 'Tahun', value: this.state.tahun || 'Semua Tahun' }
+                ];
+                return payload;
+            }
+
+            if (tables[section]) {
+                payload.title = tables[section].title || payload.title;
+                payload.description = 'Tabel detail untuk pendalaman analisis dan unduhan data mentah.';
+                payload.rows = tables[section].rows || [];
+                payload.summaryCards = [
+                    { label: 'Lingkup', value: scope.label || 'Jawa Timur' },
+                    { label: 'Baris Data', value: String(payload.rows.length) },
+                    { label: 'Filter Jenis', value: this.state.jenis || 'Semua Jenis' },
+                    { label: 'Tahun', value: this.state.tahun || 'Semua Tahun' }
+                ];
+                return payload;
+            }
+
+            return payload;
+        };
+
         app.bindExportEvents();
+        app.bindDrawerEvents();
     })(window.PetaDashboardApp);
 </script>

@@ -16,12 +16,11 @@
     <nav class="topbar" id="governmentTopbar">
         <div class="topbar-inner">
             <a class="brand-lockup" href="{{ route('peta.index') }}">
-                <span class="brand-emblem" aria-hidden="true">
-                    <img src="{{ asset('logojatim.png') }}" alt="Logo Jawa Timur" class="brand-emblem-image">
-                </span>
-                <span>
+                <img src="{{ asset('logojatim.png') }}" alt="Logo Jawa Timur" class="brand-emblem-image">
+                <span class="brand-copy">
                     <strong>Bapenda Provinsi Jawa Timur</strong>
-                    <small>Dashboard Peta Pendapatan Asli Daerah</small>
+                    <small>Jl. Manyar Kertoarjo No.1, Airlangga, Gubeng, Surabaya</small>
+                    <em>Dashboard Peta Pendapatan Asli Daerah</em>
                 </span>
             </a>
             <div class="brand-pulse">

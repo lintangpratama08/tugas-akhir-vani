@@ -1,136 +1,240 @@
-# Panduan Ubah Chart Peta PAD
+# README Peta, Dashboard, dan Relasi Data
 
-File utama chart ada di:
-
-- `resources/views/peta/script_dashboard.blade.php`
-
-Konsepnya:
-
-- Setiap chart dirender dari data backend.
-- Mapping elemen HTML chart ada di `app.chartDefinitions`.
-- Konfigurasi Chart.js dipusatkan di fungsi `buildChartConfig(chart)`.
-
-## 1. Ganti tipe chart
-
-Tipe chart berasal dari backend, tepatnya dari service:
+File utama backend:
 
 - `app/Services/PetaDashboardService.php`
 
-Cari bagian `makeChart(...)`, contoh:
+File utama frontend:
 
-```php
-$this->makeChart(
-    'komposisi',
-    'Komposisi Realisasi',
-    '...',
-    'doughnut',
-    ...
-)
-```
-
-Kalau ingin ubah dari pie/doughnut ke batang:
-
-```php
-'doughnut'
-```
-
-menjadi:
-
-```php
-'bar'
-```
-
-Kalau ingin jadi line:
-
-```php
-'line'
-```
-
-## 2. Ganti orientasi chart batang
-
-Orientasi horizontal/vertikal diatur dari `options.indexAxis`.
-
-Contoh di backend:
-
-```php
-[
-    'indexAxis' => 'y',
-]
-```
-
-Artinya chart horizontal.
-
-Kalau ingin chart vertikal biasa:
-
-```php
-[
-    'indexAxis' => 'x',
-]
-```
-
-atau hapus saja `indexAxis`.
-
-## 3. Ubah warna chart
-
-Warna default frontend ada di:
-
-```js
-window.PetaDashboardApp.palette
-```
-
-di file:
-
+- `resources/views/peta/dashboard.blade.php`
 - `resources/views/peta/script_peta.blade.php`
+- `resources/views/peta/script_dashboard.blade.php`
+- `resources/views/peta/style.blade.php`
 
-Kalau ingin warna khusus per chart, ubah warna dataset dari backend di:
+## 1. Sumber tabel
+
+Tabel peta kabupaten:
+
+- `peta`
+- dipakai untuk polygon level provinsi ke kabupaten
+- kolom utama:
+  - `ogc_fid`
+  - `kabupaten`
+  - `wkb_geometry`
+
+Tabel peta kecamatan:
+
+- `data_kec`
+- dipakai untuk polygon level kabupaten ke kecamatan
+- kolom utama:
+  - `id`
+  - `kdcpum`
+  - `kdpkab`
+  - `kdppum`
+  - `wadmkc`
+  - `wadmkk`
+  - `wkb_geometry`
+
+Tabel PAD kabupaten:
+
+- `tabel_pad`
+- dipakai untuk analitik level provinsi
+- kolom utama:
+  - `id_pad`
+  - `akun`
+  - `kota`
+  - `tahun`
+  - `anggaran`
+  - `realisasi`
+  - `persentase`
+
+Tabel PAD kecamatan:
+
+- `tabel_pad_kecamatan`
+- dipakai untuk analitik saat sudah memilih kabupaten atau kecamatan
+- kolom utama:
+  - `id_pad`
+  - `kdcpum`
+  - `kdpkab`
+  - `kdppum`
+  - `wadmkc`
+  - `wadmkk`
+  - `akun`
+  - `kota`
+  - `tahun`
+  - `anggaran`
+  - `realisasi`
+  - `persentase`
+
+Tabel penduduk:
+
+- `tb_penduduk`
+- dipakai untuk analitik wilayah berbasis jumlah penduduk
+- kolom utama:
+  - `kode`
+  - `nama_kabupaten`
+  - `jumlah_penduduk`
+  - `tahun`
+
+## 2. Relasi tabel yang dipakai sekarang
+
+Relasi level provinsi:
+
+- `tabel_pad.kota = peta.ogc_fid`
+
+Relasi level kabupaten ke kecamatan untuk peta:
+
+- `data_kec.wadmkk = filter wilayah`
+- `data_kec.wadmkc = filter kecamatan`
+
+Relasi data PAD kecamatan:
+
+- dashboard level kabupaten/kecamatan membaca langsung dari `tabel_pad_kecamatan`
+- filter yang dipakai:
+  - `tabel_pad_kecamatan.wadmkk = wilayah`
+  - `tabel_pad_kecamatan.wadmkc = kecamatan`
+
+Relasi penduduk ke PAD kabupaten:
+
+- `tb_penduduk.kode` adalah 4 digit
+- `tabel_pad.kota` adalah 2 digit
+- relasi yang dipakai:
+  - `2 digit terakhir tb_penduduk.kode = tabel_pad.kota`
+
+Contoh:
+
+- `tb_penduduk.kode = 1234`
+- `tabel_pad.kota = 34`
+- berarti cocok lewat `34 = 34`
+
+Rumus SQL relasi penduduk yang dipakai:
+
+```sql
+RIGHT(LPAD(CAST(tb_penduduk.kode AS TEXT), 4, '0'), 2)
+=
+LPAD(CAST(tabel_pad.kota AS TEXT), 2, '0')
+```
+
+## 3. Sumber data setiap chart
+
+`Perbandingan Anggaran dan Realisasi`
+
+- level provinsi: dari `tabel_pad`
+- level kabupaten: dari `tabel_pad_kecamatan`
+- level kecamatan: dari `tabel_pad_kecamatan`
+- grup data: per `akun`
+
+`Tren Tahunan`
+
+- level provinsi: dari `tabel_pad`
+- level kabupaten: dari `tabel_pad_kecamatan`
+- level kecamatan: dari `tabel_pad_kecamatan`
+- grup data: per `tahun`
+
+`PAD per Penduduk Tertinggi`
+
+- hanya dipakai saat level provinsi
+- sumber:
+  - nilai PAD dari `tabel_pad`
+  - nama wilayah dari `peta`
+  - penduduk dari `tb_penduduk`
+- rumus:
+  - `SUM(realisasi) / jumlah_penduduk`
+
+`PAD per 1.000 Penduduk`
+
+- hanya dipakai saat level provinsi
+- sumber:
+  - nilai PAD dari `tabel_pad`
+  - nama wilayah dari `peta`
+  - penduduk dari `tb_penduduk`
+- rumus:
+  - `(SUM(realisasi) / jumlah_penduduk) * 1000`
+
+`Komposisi Realisasi`
+
+- semua level
+- grup data: per `akun`
+
+`Pertumbuhan YoY`
+
+- semua level
+- grup data: per `tahun`
+- rumus:
+  - pertumbuhan realisasi dibanding tahun sebelumnya
+
+## 4. Sumber tabel detail dashboard
+
+`Detail Akun PAD`
+
+- semua level
+- grup data: per `akun`
+
+`Detail Wilayah Jawa Timur`
+
+- level provinsi
+- sumber:
+  - `tabel_pad`
+  - `peta`
+  - `tb_penduduk`
+- kolom hasil:
+  - wilayah
+  - penduduk
+  - anggaran
+  - realisasi
+  - PAD per penduduk
+  - PAD per 1.000 penduduk
+  - selisih
+  - persentase
+
+`Detail Kecamatan pada Wilayah Aktif`
+
+- level kabupaten
+- sumber:
+  - `tabel_pad_kecamatan`
+- grup data:
+  - `wadmkc`
+
+`Detail Akun Kecamatan Aktif`
+
+- level kecamatan
+- sumber:
+  - `tabel_pad_kecamatan`
+- grup data:
+  - `akun`
+
+## 5. Kalau kolom relasinya mau diganti
+
+Bagian yang perlu disesuaikan:
+
+- `padQuery()`
+- `applyPadFilters()`
+- `populationSubquery()`
+- `queryRankingWilayah()`
+- `queryKontribusi()`
+- `queryDetailWilayah()`
+- `queryDetailKecamatanDalamWilayah()`
+- `aggregateByKecamatanSubquery()`
+- `detailPerAkunByKecamatan()`
+
+Semua ada di:
 
 - `app/Services/PetaDashboardService.php`
 
-Contoh:
+## 6. Catatan penting
 
-```php
-$this->dataset('Realisasi', $data, 'currency', '#14b8a6')
-```
+Jika nanti ternyata relasi penduduk tidak cocok hanya dengan `2 digit terakhir`, opsi berikut bisa dipakai:
 
-## 4. Ubah label yang kepanjangan
+- relasi nama:
+  - `LOWER(tb_penduduk.nama_kabupaten) = LOWER(peta.kabupaten)`
+- relasi kode kabupaten dari sumber lain
+- tabel mapping manual khusus nama kabupaten
 
-Frontend sudah memakai helper:
+Jika ada kolom yang ingin Anda ganti, cukup beri tahu:
 
-- `wrapLabel(label, maxChars)`
-- `limitLabel(label, maxChars)`
+- nama tabel
+- nama kolom lama
+- nama kolom baru
+- aturan relasinya
 
-Keduanya ada di:
-
-- `resources/views/peta/script_dashboard.blade.php`
-
-Kalau label masih terlalu panjang, kecilkan angka `maxChars`.
-
-## 5. Kalau mau tambah chart baru
-
-Langkah ringkas:
-
-1. Tambah data chart di `app/Services/PetaDashboardService.php`.
-2. Tambah card/canvas baru di `resources/views/peta/dashboard.blade.php`.
-3. Tambah mapping baru di `app.chartDefinitions` pada `resources/views/peta/script_dashboard.blade.php`.
-
-## 6. Kalau chart tidak sesuai format angka
-
-Format angka ditentukan lewat nilai dataset:
-
-- `currency`
-- `percent`
-
-Contoh:
-
-```php
-$this->dataset('Persentase', $data, 'percent', '#ef4444')
-```
-
-Jika sumbu atau tooltip salah, cek:
-
-- `formatNumericTick()`
-- `formatValue()`
-
-di:
-
-- `resources/views/peta/script_dashboard.blade.php`
+lalu service bisa disesuaikan langsung.

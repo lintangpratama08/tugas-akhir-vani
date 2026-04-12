@@ -25,11 +25,11 @@ class PetaDashboardService
             ->orderBy('tahun', 'desc')
             ->pluck('tahun');
 
-        $wilayahList = DB::table('peta')
-            ->select('kabupaten')
-            ->whereNotNull('kabupaten')
+        $wilayahList = DB::table('data_kec')
+            ->select('wadmkk as kabupaten')
+            ->whereNotNull('wadmkk')
             ->distinct()
-            ->orderBy('kabupaten')
+            ->orderBy('wadmkk')
             ->pluck('kabupaten');
 
         return [
@@ -49,13 +49,17 @@ class PetaDashboardService
             'tahun' => $request->filled('tahun') ? (int) $request->input('tahun') : $defaultTahun,
             'jenis' => $request->filled('jenis') ? $request->input('jenis') : null,
             'wilayah' => $request->filled('wilayah') ? $request->input('wilayah') : null,
+            'kecamatan' => $request->filled('kecamatan') ? $request->input('kecamatan') : null,
         ];
     }
 
     public function getMapPayload(array $filters)
     {
-        $aggregateSubquery = $this->aggregateByKotaSubquery($filters);
+        if (!empty($filters['wilayah'])) {
+            return $this->getKecamatanMapPayload($filters);
+        }
 
+        $aggregateSubquery = $this->aggregateByKotaSubquery($filters);
         $detailPerKota = $this->detailPerAkunByKota($filters);
 
         $rows = DB::table('peta as p')
@@ -82,6 +86,7 @@ class PetaDashboardService
         return [
             'scope' => $this->buildScope($filters),
             'legend' => $this->getLegend(),
+            'summary' => $this->buildMapSummaryFromRows($data),
             'data' => $data,
         ];
     }
@@ -149,21 +154,23 @@ class PetaDashboardService
                 ),
                 $this->makeChart(
                     'peringkat',
-                    $scope['mode'] === 'province' ? 'Peringkat Kinerja Wilayah' : 'Peringkat Kinerja Jenis PAD',
+                    $scope['mode'] === 'province' ? 'PAD per Penduduk Tertinggi' : 'Peringkat Kinerja Jenis PAD',
                     $scope['mode'] === 'province'
-                        ? 'Daftar wilayah dengan persentase realisasi tertinggi pada filter aktif.'
+                        ? 'Wilayah diurutkan berdasarkan realisasi PAD per penduduk, sehingga wilayah dengan penduduk lebih kecil tetap bisa terlihat lebih efektif.'
                         : 'Perbandingan persentase tiap jenis PAD di wilayah yang dipilih.',
                     'bar',
                     $rankingWilayah->pluck('label')->all(),
                     [
-                        $this->dataset('Persentase Realisasi', $rankingWilayah->pluck('value')->all(), 'percent', '#ef4444'),
+                        $this->dataset($scope['mode'] === 'province' ? 'PAD per Penduduk' : 'Persentase Realisasi', $rankingWilayah->pluck('value')->all(), $scope['mode'] === 'province' ? 'currency' : 'percent', '#ef4444'),
                     ],
                     [
                         'indexAxis' => 'y',
                         'rows' => $rankingWilayah->map(function ($row) {
                             return [
                                 'Kategori' => $row['label'],
-                                'Persentase (%)' => $row['value'],
+                                $row['raw_label'] ?? 'Nilai' => $row['value'],
+                                'Penduduk' => $row['population'] ?? null,
+                                'Realisasi' => $row['realisasi'] ?? null,
                             ];
                         })->all(),
                     ]
@@ -193,20 +200,22 @@ class PetaDashboardService
                 ),
                 $this->makeChart(
                     'kontribusi',
-                    $scope['mode'] === 'province' ? 'Kontribusi Wilayah' : 'Kontribusi Jenis PAD',
+                    $scope['mode'] === 'province' ? 'PAD per 1.000 Penduduk' : 'Kontribusi Jenis PAD',
                     $scope['mode'] === 'province'
-                        ? 'Nilai realisasi terbesar per kabupaten/kota.'
+                        ? 'Perbandingan realisasi PAD terhadap jumlah penduduk dalam skala per 1.000 penduduk.'
                         : 'Nilai realisasi terbesar per jenis PAD di wilayah aktif.',
                     'bar',
                     $kontribusi->pluck('label')->all(),
                     [
-                        $this->dataset('Realisasi', $kontribusi->pluck('value')->all(), 'currency', '#0f766e'),
+                        $this->dataset($scope['mode'] === 'province' ? 'PAD per 1.000 Penduduk' : 'Realisasi', $kontribusi->pluck('value')->all(), 'currency', '#0f766e'),
                     ],
                     [
                         'rows' => $kontribusi->map(function ($row) {
                             return [
                                 'Kategori' => $row['label'],
-                                'Realisasi' => $row['value'],
+                                ($row['raw_label'] ?? 'Nilai') => $row['value'],
+                                'Penduduk' => $row['population'] ?? null,
+                                'Realisasi' => $row['realisasi'] ?? null,
                             ];
                         })->all(),
                     ]
@@ -244,10 +253,14 @@ class PetaDashboardService
                     })->all(),
                 ],
                 'detail_wilayah' => [
-                    'title' => $scope['mode'] === 'province' ? 'Detail Wilayah Jawa Timur' : 'Detail Wilayah Aktif',
+                    'title' => $scope['mode'] === 'province'
+                        ? 'Detail Wilayah Jawa Timur'
+                        : ($scope['mode'] === 'kecamatan' ? 'Detail Akun Kecamatan Aktif' : 'Detail Kecamatan pada Wilayah Aktif'),
                     'rows' => $scope['mode'] === 'province'
                         ? $this->queryDetailWilayah($filters)->all()
-                        : $this->queryDetailWilayahTerpilih($filters)->all(),
+                        : ($scope['mode'] === 'kabupaten'
+                            ? $this->queryDetailKecamatanDalamWilayah($filters)->all()
+                            : $this->queryDetailWilayahTerpilih($filters)->all()),
                 ],
             ],
         ];
@@ -355,7 +368,7 @@ class PetaDashboardService
 
     protected function buildExportFilename($section, array $filters)
     {
-        $wilayah = $filters['wilayah'] ?: 'jatim';
+        $wilayah = $filters['kecamatan'] ?: ($filters['wilayah'] ?: 'jatim');
         $tahun = $filters['tahun'] ?: 'semua-tahun';
 
         $safeWilayah = preg_replace('/[^a-z0-9]+/i', '-', strtolower($wilayah));
@@ -366,12 +379,21 @@ class PetaDashboardService
 
     protected function buildScope(array $filters)
     {
+        if (!empty($filters['kecamatan'])) {
+            return [
+                'mode' => 'kecamatan',
+                'label' => $filters['kecamatan'],
+                'parent' => $filters['wilayah'] ?: 'Jawa Timur',
+                'description' => 'Dashboard menampilkan rincian kecamatan yang dipilih pada peta.',
+            ];
+        }
+
         if (!empty($filters['wilayah'])) {
             return [
                 'mode' => 'kabupaten',
                 'label' => $filters['wilayah'],
                 'parent' => 'Jawa Timur',
-                'description' => 'Dashboard menampilkan rincian wilayah yang dipilih pada peta.',
+                'description' => 'Dashboard menampilkan rincian kabupaten/kota yang dipilih pada peta.',
             ];
         }
 
@@ -396,8 +418,12 @@ class PetaDashboardService
 
     protected function padQuery(array $filters, $ignoreTahun)
     {
-        $query = DB::table('tabel_pad as tp')
-            ->join('peta as p', 'p.ogc_fid', '=', 'tp.kota');
+        if (!empty($filters['wilayah']) || !empty($filters['kecamatan'])) {
+            $query = DB::table('tabel_pad_kecamatan as tp');
+        } else {
+            $query = DB::table('tabel_pad as tp')
+                ->join('peta as p', 'p.ogc_fid', '=', 'tp.kota');
+        }
 
         if (!$ignoreTahun && !empty($filters['tahun'])) {
             $query->where('tp.tahun', $filters['tahun']);
@@ -508,7 +534,7 @@ class PetaDashboardService
 
     protected function queryRankingWilayah(array $filters, $mode)
     {
-        if ($mode === 'kabupaten') {
+        if (in_array($mode, ['kabupaten', 'kecamatan'], true)) {
             return $this->queryPerJenis($this->padQuery($filters, false))
                 ->map(function ($row) {
                     return [
@@ -520,21 +546,25 @@ class PetaDashboardService
                 ->values();
         }
 
-        return $this->padQuery($filters, false)
+        return $this->provincePadPopulationQuery($filters)
             ->select(
-                'p.kabupaten',
-                DB::raw('SUM(tp.anggaran) as total_anggaran'),
+                'p.kabupaten as wilayah',
+                DB::raw('COALESCE(pop.jumlah_penduduk, 0) as jumlah_penduduk'),
                 DB::raw('SUM(tp.realisasi) as total_realisasi')
             )
-            ->groupBy('p.kabupaten')
+            ->groupBy('p.kabupaten', 'pop.jumlah_penduduk')
             ->get()
             ->map(function ($row) {
-                $anggaran = (float) $row->total_anggaran;
                 $realisasi = (float) $row->total_realisasi;
+                $penduduk = (float) $row->jumlah_penduduk;
+                $perPenduduk = $penduduk > 0 ? $realisasi / $penduduk : 0;
 
                 return [
-                    'label' => $row->kabupaten,
-                    'value' => $anggaran > 0 ? round(($realisasi / $anggaran) * 100, 2) : 0,
+                    'label' => $row->wilayah,
+                    'value' => round($perPenduduk, 2),
+                    'raw_label' => 'PAD per Penduduk',
+                    'population' => round($penduduk, 2),
+                    'realisasi' => round($realisasi, 2),
                 ];
             })
             ->sortByDesc('value')
@@ -544,7 +574,7 @@ class PetaDashboardService
 
     protected function queryKontribusi(array $filters, $mode)
     {
-        if ($mode === 'kabupaten') {
+        if (in_array($mode, ['kabupaten', 'kecamatan'], true)) {
             return $this->queryPerJenis($this->padQuery($filters, false))
                 ->map(function ($row) {
                     return [
@@ -556,48 +586,88 @@ class PetaDashboardService
                 ->values();
         }
 
-        return $this->padQuery($filters, false)
+        return $this->provincePadPopulationQuery($filters)
             ->select(
-                'p.kabupaten',
+                'p.kabupaten as wilayah',
+                DB::raw('COALESCE(pop.jumlah_penduduk, 0) as jumlah_penduduk'),
                 DB::raw('SUM(tp.realisasi) as total_realisasi')
             )
-            ->groupBy('p.kabupaten')
-            ->orderByDesc(DB::raw('SUM(tp.realisasi)'))
-            ->limit(10)
+            ->groupBy('p.kabupaten', 'pop.jumlah_penduduk')
             ->get()
             ->map(function ($row) {
+                $realisasi = (float) $row->total_realisasi;
+                $penduduk = (float) $row->jumlah_penduduk;
+                $perSeribu = $penduduk > 0 ? ($realisasi / $penduduk) * 1000 : 0;
+
                 return [
-                    'label' => $row->kabupaten,
-                    'value' => round((float) $row->total_realisasi, 2),
+                    'label' => $row->wilayah,
+                    'value' => round($perSeribu, 2),
+                    'raw_label' => 'PAD per 1.000 Penduduk',
+                    'population' => round($penduduk, 2),
+                    'realisasi' => round($realisasi, 2),
                 ];
             })
+            ->sortByDesc('value')
+            ->take(10)
             ->values();
     }
 
     protected function queryDetailWilayah(array $filters)
     {
-        return $this->padQuery($filters, false)
+        return $this->provincePadPopulationQuery($filters)
             ->select(
-                'p.kabupaten',
+                'p.kabupaten as wilayah',
+                DB::raw('COALESCE(pop.jumlah_penduduk, 0) as jumlah_penduduk'),
                 DB::raw('SUM(tp.anggaran) as total_anggaran'),
                 DB::raw('SUM(tp.realisasi) as total_realisasi')
             )
-            ->groupBy('p.kabupaten')
+            ->groupBy('p.kabupaten', 'pop.jumlah_penduduk')
             ->orderBy('p.kabupaten')
             ->get()
             ->map(function ($row) {
                 $anggaran = (float) $row->total_anggaran;
                 $realisasi = (float) $row->total_realisasi;
+                $penduduk = (float) $row->jumlah_penduduk;
 
                 return [
-                    'Wilayah' => $row->kabupaten,
+                    'Wilayah' => $row->wilayah,
+                    'Penduduk' => round($penduduk, 2),
                     'Anggaran' => round($anggaran, 2),
                     'Realisasi' => round($realisasi, 2),
+                    'PAD per Penduduk' => $penduduk > 0 ? round($realisasi / $penduduk, 2) : 0,
+                    'PAD per 1.000 Penduduk' => $penduduk > 0 ? round(($realisasi / $penduduk) * 1000, 2) : 0,
                     'Selisih' => round($realisasi - $anggaran, 2),
                     'Persentase (%)' => $anggaran > 0 ? round(($realisasi / $anggaran) * 100, 2) : 0,
                 ];
             })
             ->values();
+    }
+
+    protected function provincePadPopulationQuery(array $filters)
+    {
+        $populationSubquery = $this->populationSubquery($filters);
+
+        return $this->padQuery($filters, false)
+            ->leftJoinSub($populationSubquery, 'pop', function ($join) {
+                $join->on(
+                    DB::raw('TRIM(CAST(p.kode AS TEXT))'),
+                    '=',
+                    DB::raw('TRIM(CAST(pop.kode_wilayah AS TEXT))')
+                );
+            });
+    }
+
+    protected function populationSubquery(array $filters)
+    {
+        return DB::table('tb_penduduk as pend')
+            ->select(
+                DB::raw('TRIM(CAST(pend.kode AS TEXT)) as kode_wilayah'),
+                DB::raw('SUM(pend.jumlah_penduduk) as jumlah_penduduk')
+            )
+            ->when(!empty($filters['tahun']), function ($query) use ($filters) {
+                $query->where('pend.tahun', $filters['tahun']);
+            })
+            ->groupBy(DB::raw('TRIM(CAST(pend.kode AS TEXT))'));
     }
 
     protected function queryDetailWilayahTerpilih(array $filters)
@@ -610,6 +680,49 @@ class PetaDashboardService
                     'Realisasi' => $row['realisasi'],
                     'Selisih' => $row['selisih'],
                     'Persentase (%)' => $row['persentase'],
+                ];
+            })
+            ->values();
+    }
+
+    protected function queryDetailKecamatanDalamWilayah(array $filters)
+    {
+        return DB::table('tabel_pad_kecamatan as tp')
+            ->when(!empty($filters['tahun']), function ($query) use ($filters) {
+                $query->where('tp.tahun', $filters['tahun']);
+            })
+            ->where('tp.wadmkk', $filters['wilayah'])
+            ->when(!empty($filters['jenis']), function ($query) use ($filters) {
+                $query->where('tp.akun', 'ILIKE', '%' . $filters['jenis'] . '%');
+            }, function ($query) {
+                $query->where(function ($innerQuery) {
+                    foreach ($this->akunUtama as $index => $akun) {
+                        if ($index === 0) {
+                            $innerQuery->where('tp.akun', 'ILIKE', '%' . $akun . '%');
+                        } else {
+                            $innerQuery->orWhere('tp.akun', 'ILIKE', '%' . $akun . '%');
+                        }
+                    }
+                });
+            })
+            ->select(
+                'tp.wadmkc as kecamatan',
+                DB::raw('SUM(tp.anggaran) as total_anggaran'),
+                DB::raw('SUM(tp.realisasi) as total_realisasi')
+            )
+            ->groupBy('tp.wadmkc')
+            ->orderBy('tp.wadmkc')
+            ->get()
+            ->map(function ($row) {
+                $anggaran = (float) $row->total_anggaran;
+                $realisasi = (float) $row->total_realisasi;
+
+                return [
+                    'Kecamatan' => $row->kecamatan,
+                    'Anggaran' => round($anggaran, 2),
+                    'Realisasi' => round($realisasi, 2),
+                    'Selisih' => round($realisasi - $anggaran, 2),
+                    'Persentase (%)' => $anggaran > 0 ? round(($realisasi / $anggaran) * 100, 2) : 0,
                 ];
             })
             ->values();
@@ -637,6 +750,7 @@ class PetaDashboardService
 
     protected function applyPadFilters(Builder $query, array $filters)
     {
+        // dd($filters);
         if (!empty($filters['jenis'])) {
             $query->where('tp.akun', 'ILIKE', '%' . $filters['jenis'] . '%');
         } else {
@@ -651,11 +765,145 @@ class PetaDashboardService
             });
         }
 
+        if (!empty($filters['kecamatan'])) {
+            $query->where('tp.wadmkc', $filters['kecamatan']);
+        }
+
         if (!empty($filters['wilayah'])) {
-            $query->where('p.kabupaten', $filters['wilayah']);
+            $query->where('tp.wadmkk', $filters['wilayah']);
         }
 
         return $query;
+    }
+
+    protected function getKecamatanMapPayload(array $filters)
+    {
+        $aggregateSubquery = $this->aggregateByKecamatanSubquery($filters);
+        $detailPerKecamatan = $this->detailPerAkunByKecamatan($filters);
+
+        $rows = DB::table('data_kec as dk')
+            ->leftJoinSub($aggregateSubquery, 'agg', function ($join) {
+                $join->on('dk.id', '=', 'agg.kec_id');
+            })
+            ->select(
+                'dk.id',
+                'dk.wadmkc as kecamatan',
+                'dk.wadmkk as kabupaten',
+                DB::raw('ST_AsGeoJSON(ST_Force2D(dk.wkb_geometry)) as geojson'),
+                DB::raw('COALESCE(agg.total_anggaran, 0) as total_anggaran'),
+                DB::raw('COALESCE(agg.total_realisasi, 0) as total_realisasi'),
+                DB::raw('COALESCE(agg.persentase, 0) as persentase')
+            )
+            ->where('dk.wadmkk', $filters['wilayah'])
+            ->when(!empty($filters['kecamatan']), function ($query) use ($filters) {
+                $query->where('dk.wadmkc', $filters['kecamatan']);
+            })
+            ->orderBy('dk.wadmkc')
+            ->get();
+
+        $data = $rows->map(function ($row) use ($detailPerKecamatan) {
+            $row->detail_per_akun = $detailPerKecamatan->get($row->id, collect())->values();
+            return $row;
+        });
+
+        return [
+            'scope' => $this->buildScope($filters),
+            'legend' => $this->getLegend(),
+            'summary' => $this->buildMapSummaryFromRows($data),
+            'data' => $data,
+        ];
+    }
+
+    protected function aggregateByKecamatanSubquery(array $filters)
+    {
+        return DB::table('tabel_pad_kecamatan as tp')
+            ->join('data_kec as dk', function ($join) {
+                $join->on('dk.kdcpum', '=', 'tp.kdcpum');
+            })
+            ->when(!empty($filters['tahun']), function ($query) use ($filters) {
+                $query->where('tp.tahun', $filters['tahun']);
+            })
+            ->where('dk.wadmkk', $filters['wilayah'])
+            ->when(!empty($filters['jenis']), function ($query) use ($filters) {
+                $query->where('tp.akun', 'ILIKE', '%' . $filters['jenis'] . '%');
+            }, function ($query) {
+                $query->where(function ($innerQuery) {
+                    foreach ($this->akunUtama as $index => $akun) {
+                        if ($index === 0) {
+                            $innerQuery->where('tp.akun', 'ILIKE', '%' . $akun . '%');
+                        } else {
+                            $innerQuery->orWhere('tp.akun', 'ILIKE', '%' . $akun . '%');
+                        }
+                    }
+                });
+            })
+            ->when(!empty($filters['kecamatan']), function ($query) use ($filters) {
+                $query->where('dk.wadmkc', $filters['kecamatan']);
+            })
+            ->select(
+                'dk.id as kec_id',
+                DB::raw('SUM(tp.anggaran) as total_anggaran'),
+                DB::raw('SUM(tp.realisasi) as total_realisasi'),
+                DB::raw('CASE WHEN SUM(tp.anggaran) > 0 THEN (SUM(tp.realisasi) / SUM(tp.anggaran)) * 100 ELSE 0 END as persentase')
+            )
+            ->groupBy('dk.id');
+    }
+
+    protected function detailPerAkunByKecamatan(array $filters)
+    {
+        return DB::table('tabel_pad_kecamatan as tp')
+            ->join('data_kec as dk', function ($join) {
+                $join->on('dk.kdcpum', '=', 'tp.kdcpum');
+            })
+            ->when(!empty($filters['tahun']), function ($query) use ($filters) {
+                $query->where('tp.tahun', $filters['tahun']);
+            })
+            ->where('dk.wadmkk', $filters['wilayah'])
+            ->when(!empty($filters['jenis']), function ($query) use ($filters) {
+                $query->where('tp.akun', 'ILIKE', '%' . $filters['jenis'] . '%');
+            }, function ($query) {
+                $query->where(function ($innerQuery) {
+                    foreach ($this->akunUtama as $index => $akun) {
+                        if ($index === 0) {
+                            $innerQuery->where('tp.akun', 'ILIKE', '%' . $akun . '%');
+                        } else {
+                            $innerQuery->orWhere('tp.akun', 'ILIKE', '%' . $akun . '%');
+                        }
+                    }
+                });
+            })
+            ->when(!empty($filters['kecamatan']), function ($query) use ($filters) {
+                $query->where('dk.wadmkc', $filters['kecamatan']);
+            })
+            ->select(
+                'dk.id as kec_id',
+                'tp.akun',
+                DB::raw('SUM(tp.anggaran) as anggaran'),
+                DB::raw('SUM(tp.realisasi) as realisasi'),
+                DB::raw('CASE WHEN SUM(tp.anggaran) > 0 THEN (SUM(tp.realisasi) / SUM(tp.anggaran)) * 100 ELSE 0 END as persentase')
+            )
+            ->groupBy('dk.id', 'tp.akun')
+            ->orderBy('tp.akun')
+            ->get()
+            ->groupBy('kec_id');
+    }
+
+    protected function buildMapSummaryFromRows(Collection $rows)
+    {
+        $totalAnggaran = (float) $rows->sum(function ($row) {
+            return (float) ($row->total_anggaran ?: 0);
+        });
+
+        $totalRealisasi = (float) $rows->sum(function ($row) {
+            return (float) ($row->total_realisasi ?: 0);
+        });
+
+        return [
+            'total_anggaran' => round($totalAnggaran, 2),
+            'total_realisasi' => round($totalRealisasi, 2),
+            'selisih' => round($totalRealisasi - $totalAnggaran, 2),
+            'persentase' => $totalAnggaran > 0 ? round(($totalRealisasi / $totalAnggaran) * 100, 2) : 0,
+        ];
     }
 
     protected function shortAkunLabel($akun)
