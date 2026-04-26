@@ -34,6 +34,7 @@
         };
 
         app.renderDashboard = function(payload) {
+            this.closeKarisidenanTrendDetail(false);
             this.renderSummary(payload.summary, payload.scope);
             this.renderDashboardHeader(payload.scope);
             this.renderCharts(payload.charts || []);
@@ -379,6 +380,7 @@
                     section: section,
                     tahun: appInstance.state.tahun,
                     jenis: appInstance.state.jenis,
+                    karisidenan: appInstance.state.karisidenan,
                     wilayah: appInstance.state.wilayah,
                     kecamatan: appInstance.state.kecamatan
                 });
@@ -392,11 +394,22 @@
 
             $(document).off('click', '.dashboard-drawer-trigger').on('click', '.dashboard-drawer-trigger', function() {
                 const section = $(this).data('drawer-section');
+                const dashboard = appInstance.state.dashboard || {};
+
+                if (dashboard.scope && dashboard.scope.mode === 'karisidenan' && dashboard.karisidenan_detail && dashboard.karisidenan_detail[section]) {
+                    appInstance.openKarisidenanChartDetail(section);
+                    return;
+                }
+
                 appInstance.openDrawer(section);
             });
 
             $(document).off('click', '#dashboard_drawer_close, #dashboard_drawer_backdrop').on('click', '#dashboard_drawer_close, #dashboard_drawer_backdrop', function() {
                 appInstance.closeDrawer();
+            });
+
+            $(document).off('click', '#close_karisidenan_detail').on('click', '#close_karisidenan_detail', function() {
+                appInstance.closeKarisidenanTrendDetail();
             });
         };
 
@@ -482,6 +495,56 @@
             }
 
             return payload;
+        };
+
+        app.openKarisidenanChartDetail = function(section) {
+            const detailMap = (this.state.dashboard || {}).karisidenan_detail || {};
+            const detail = detailMap[section] || [];
+            const sourceChart = ((this.state.dashboard || {}).charts || []).find(function(item) {
+                return item.key === section;
+            }) || {};
+            const target = $('#karisidenan_trend_grid');
+            const appInstance = this;
+
+            target.html('');
+            $('#karisidenan_detail_title').text((sourceChart.title || 'Detail Chart') + ' per Wilayah');
+            $('#karisidenan_detail_description').text('Mode fokus untuk seluruh wilayah dalam karisidenan aktif.');
+
+            detail.forEach(function(item, index) {
+                const canvasId = 'karisidenan_detail_' + section + '_' + index;
+                target.append(
+                    '<article class="chart-card">' +
+                    '<div class="chart-card-head"><div><h3>' + appInstance.escapeHtml(item.label || 'Wilayah') + '</h3><p>' + appInstance.escapeHtml(sourceChart.description || 'Detail wilayah dalam karisidenan aktif.') + '</p></div></div>' +
+                    '<div class="chart-canvas"><canvas id="' + canvasId + '"></canvas></div>' +
+                    '</article>'
+                );
+
+                const chart = {
+                    key: canvasId,
+                    type: item.type || sourceChart.type || 'bar',
+                    labels: item.labels || [],
+                    datasets: item.datasets || [],
+                    options: item.options || {
+                        indexAxis: 'x'
+                    }
+                };
+
+                appInstance.renderManagedChart(chart, {
+                    canvasId: canvasId
+                });
+            });
+
+            $('#karisidenan_trend_detail').prop('hidden', false);
+            $('.charts-grid, .detail-grid').not('#karisidenan_trend_grid').hide();
+        };
+
+        app.closeKarisidenanTrendDetail = function(restore = true) {
+            $('#karisidenan_trend_detail').prop('hidden', true);
+            if (restore) {
+                $('.charts-grid, .detail-grid').show();
+            } else {
+                $('.charts-grid, .detail-grid').show();
+            }
         };
 
         app.bindExportEvents();

@@ -128,6 +128,21 @@
         </article>
     </div>
 
+    <section id="karisidenan_trend_detail" class="karisidenan-detail-shell" hidden>
+        <div class="dashboard-heading">
+            <div>
+                <span class="section-badge">Detail Karisidenan</span>
+                <h2 id="karisidenan_detail_title">Tren Tahunan per Wilayah</h2>
+                <p id="karisidenan_detail_description">Detail tren tahunan untuk tiap wilayah dalam karisidenan aktif.</p>
+            </div>
+            <button type="button" class="hero-button hero-button-light" id="close_karisidenan_detail">
+                <i class="bi bi-arrow-left"></i>
+                Kembali
+            </button>
+        </div>
+        <div id="karisidenan_trend_grid" class="charts-grid charts-grid-detail"></div>
+    </section>
+
     <div class="detail-grid">
         <article class="detail-card" data-drawer-section="detail_akun">
             <div class="detail-head">

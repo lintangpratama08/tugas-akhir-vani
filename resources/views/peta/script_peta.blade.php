@@ -3,6 +3,7 @@
         state: {
             tahun: window.petaDashboardConfig.defaultTahun ? String(window.petaDashboardConfig.defaultTahun) : '',
             jenis: '',
+            karisidenan: '',
             wilayah: '',
             kecamatan: '',
             mapData: [],
@@ -45,17 +46,31 @@
         buildOverlayHtml: function() {
             const tahunOptions = (window.petaFilterOptions.tahunList || []).map((tahun) => {
                 const selected = String(tahun) === String(this.state.tahun) ? ' selected' : '';
-                return '<option value="' + this.escapeHtml(tahun) + '"' + selected + '>' + this.escapeHtml(tahun) + '</option>';
+                return '<option value="' + this.escapeHtml(tahun) + '"' + selected + '>' + this
+                    .escapeHtml(tahun) + '</option>';
             }).join('');
 
-            const jenisOptions = ['<option value="">Semua Jenis</option>'].concat((window.petaFilterOptions.jenisAkun || []).map((jenis) => {
+            const jenisOptions = ['<option value="">Semua Jenis</option>'].concat((window.petaFilterOptions
+                .jenisAkun || []).map((jenis) => {
                 const selected = jenis === this.state.jenis ? ' selected' : '';
-                return '<option value="' + this.escapeHtml(jenis) + '"' + selected + '>' + this.escapeHtml(jenis) + '</option>';
+                return '<option value="' + this.escapeHtml(jenis) + '"' + selected + '>' + this
+                    .escapeHtml(jenis) + '</option>';
             })).join('');
 
-            const wilayahOptions = ['<option value="">Semua Pemda (Jatim)</option>'].concat((window.petaFilterOptions.wilayahList || []).map((wilayah) => {
-                const selected = wilayah === this.state.wilayah ? ' selected' : '';
-                return '<option value="' + this.escapeHtml(wilayah) + '"' + selected + '>' + this.escapeHtml(wilayah) + '</option>';
+            const karisidenanOptions = ['<option value="">Semua Karisidenan</option>'].concat((window
+                .petaFilterOptions.karisidenanList || []).map((item) => {
+                const selected = String(item.id) === String(this.state.karisidenan) ? ' selected' : '';
+                return '<option value="' + this.escapeHtml(item.id) + '"' + selected + '>' + this
+                    .escapeHtml(item.nama_karisidenan) + '</option>';
+            })).join('');
+
+            const wilayahOptions = ['<option value="">Semua Pemda (Jatim)</option>'].concat(this.getFilteredWilayahOptions().map((item) => {
+                const selected = item.kabupaten === this.state.wilayah ? ' selected' : '';
+                const label = item.nama_karisidenan && item.nama_karisidenan !== '-' ?
+                    item.kabupaten + ' (' + item.nama_karisidenan + ')' :
+                    item.kabupaten;
+                return '<option value="' + this.escapeHtml(item.kabupaten) + '"' + selected + '>' + this
+                    .escapeHtml(label) + '</option>';
             })).join('');
 
             return '' +
@@ -70,7 +85,12 @@
                 '</div>' +
                 '<div class="map-filter-field">' +
                 '<label for="filter_tahun">Tahun</label>' +
-                '<select id="filter_tahun" class="map-filter-select"><option value="">Semua Tahun</option>' + tahunOptions + '</select>' +
+                '<select id="filter_tahun" class="map-filter-select"><option value="">Semua Tahun</option>' +
+                tahunOptions + '</select>' +
+                '</div>' +
+                '<div class="map-filter-field">' +
+                '<label for="filter_karisidenan">Karisidenan</label>' +
+                '<select id="filter_karisidenan" class="map-filter-select">' + karisidenanOptions + '</select>' +
                 '</div>' +
                 '<div class="map-filter-field">' +
                 '<label for="filter_wilayah">Wilayah</label>' +
@@ -89,11 +109,20 @@
             let html = '';
 
             if (this.state.kecamatan) {
-                html += '<button id="btn_back_to_kecamatan" type="button" class="map-filter-btn"><i class="bi bi-arrow-left"></i> Kembali ke Kecamatan</button>';
+                html +=
+                    '<button id="btn_back_to_kecamatan" type="button" class="map-filter-btn"><i class="bi bi-arrow-left"></i> Kembali ke Kecamatan</button>';
             }
 
             if (this.state.wilayah) {
-                html += '<button id="btn_back_to_province" type="button" class="map-filter-btn"><i class="bi bi-globe2"></i> Lihat Jawa Timur</button>';
+                if (this.state.karisidenan) {
+                    html +=
+                        '<button id="btn_back_to_karisidenan" type="button" class="map-filter-btn"><i class="bi bi-diagram-3"></i> Lihat Karisidenan</button>';
+                }
+                html +=
+                    '<button id="btn_back_to_province" type="button" class="map-filter-btn"><i class="bi bi-globe2"></i> Lihat Jawa Timur</button>';
+            } else if (this.state.karisidenan) {
+                html +=
+                    '<button id="btn_clear_karisidenan" type="button" class="map-filter-btn"><i class="bi bi-globe2"></i> Semua Jawa Timur</button>';
             }
 
             return html;
@@ -109,12 +138,16 @@
                 app.refreshAll();
             });
 
-            $(document).off('change', '#filter_tahun, #filter_jenis, #filter_wilayah').on('change', '#filter_tahun, #filter_jenis, #filter_wilayah', function() {
-                app.readFilterState();
-                app.syncFilterMeta();
-            });
+            $(document).off('change', '#filter_tahun, #filter_jenis, #filter_karisidenan, #filter_wilayah').on('change',
+                '#filter_tahun, #filter_jenis, #filter_karisidenan, #filter_wilayah',
+                function() {
+                    app.readFilterState();
+                    app.renderTopOverlay();
+                    app.syncFilterMeta();
+                });
 
-            $(document).off('click', '#btn_back_to_kecamatan').on('click', '#btn_back_to_kecamatan', function() {
+            $(document).off('click', '#btn_back_to_kecamatan').on('click', '#btn_back_to_kecamatan',
+        function() {
                 app.state.kecamatan = '';
                 app.state.infoTab = 'pad';
                 app.syncFilterMeta();
@@ -125,9 +158,27 @@
             $(document).off('click', '#btn_back_to_province').on('click', '#btn_back_to_province', function() {
                 app.state.wilayah = '';
                 app.state.kecamatan = '';
+                app.state.karisidenan = '';
                 app.state.infoTab = 'pad';
                 $('#filter_wilayah').val('');
                 app.syncFilterMeta();
+                app.renderTopOverlay();
+                app.refreshAll();
+            });
+
+            $(document).off('click', '#btn_back_to_karisidenan').on('click', '#btn_back_to_karisidenan', function() {
+                app.state.wilayah = '';
+                app.state.kecamatan = '';
+                app.state.infoTab = 'pad';
+                app.renderTopOverlay();
+                app.refreshAll();
+            });
+
+            $(document).off('click', '#btn_clear_karisidenan').on('click', '#btn_clear_karisidenan', function() {
+                app.state.karisidenan = '';
+                app.state.wilayah = '';
+                app.state.kecamatan = '';
+                app.state.infoTab = 'pad';
                 app.renderTopOverlay();
                 app.refreshAll();
             });
@@ -145,6 +196,24 @@
             $(document).off('click', '#toggle_legend_panel').on('click', '#toggle_legend_panel', function() {
                 app.state.legendCollapsed = !app.state.legendCollapsed;
                 app.refreshLegendState();
+            });
+
+            $(document).off('click', '.popup-action-kecamatan').on('click', '.popup-action-kecamatan', function() {
+                app.state.wilayah = $(this).data('wilayah') || '';
+                app.state.karisidenan = $(this).data('karisidenan-id') || app.state.karisidenan;
+                app.state.kecamatan = '';
+                app.state.infoTab = 'pad';
+                app.renderTopOverlay();
+                app.refreshAll();
+            });
+
+            $(document).off('click', '.popup-action-karisidenan').on('click', '.popup-action-karisidenan', function() {
+                app.state.karisidenan = $(this).data('karisidenan-id') || '';
+                app.state.wilayah = '';
+                app.state.kecamatan = '';
+                app.state.infoTab = 'pad';
+                app.renderTopOverlay();
+                app.refreshAll();
             });
         },
 
@@ -180,7 +249,7 @@
                 Hybrid: hybrid
             };
 
-            satellite.addTo(this.map);
+            street.addTo(this.map);
 
             L.control.layers(this.baseLayers, null, {
                 position: 'topright',
@@ -202,10 +271,17 @@
         },
 
         readFilterState: function() {
+            const previousKarisidenan = this.state.karisidenan;
             const previousWilayah = this.state.wilayah;
             this.state.tahun = $('#filter_tahun').val();
             this.state.jenis = $('#filter_jenis').val();
+            this.state.karisidenan = $('#filter_karisidenan').val();
             this.state.wilayah = $('#filter_wilayah').val();
+
+            if (previousKarisidenan !== this.state.karisidenan) {
+                this.state.wilayah = '';
+                this.state.kecamatan = '';
+            }
 
             if (previousWilayah !== this.state.wilayah) {
                 this.state.kecamatan = '';
@@ -214,8 +290,21 @@
             this.syncFilterMeta();
         },
 
+        getFilteredWilayahOptions: function() {
+            const karisidenan = String(this.state.karisidenan || '');
+            const items = window.petaFilterOptions.wilayahList || [];
+
+            if (!karisidenan) {
+                return items;
+            }
+
+            return items.filter(function(item) {
+                return String(item.karisidenan_id || '') === karisidenan;
+            });
+        },
+
         syncFilterMeta: function() {
-            const scopeLabel = this.state.kecamatan || this.state.wilayah || 'Semua Pemda (Jatim)';
+            const scopeLabel = this.state.kecamatan || this.state.wilayah || this.resolveKarisidenanLabel() || 'Semua Pemda (Jatim)';
             this.state.mapScope.label = scopeLabel;
         },
 
@@ -234,6 +323,7 @@
                 data: {
                     tahun: this.state.tahun,
                     jenis: this.state.jenis,
+                    karisidenan: this.state.karisidenan,
                     wilayah: this.state.wilayah,
                     kecamatan: this.state.kecamatan
                 }
@@ -261,6 +351,7 @@
                 data: {
                     tahun: this.state.tahun,
                     jenis: this.state.jenis,
+                    karisidenan: this.state.karisidenan,
                     wilayah: this.state.wilayah,
                     kecamatan: this.state.kecamatan
                 }
@@ -284,7 +375,8 @@
 
             this.mapLayer = L.geoJSON([], {
                 style: function(feature) {
-                    return app.getFeatureStyle(feature.properties, app.isActiveFeature(feature.properties));
+                    return app.getFeatureStyle(feature.properties, app.isActiveFeature(feature
+                        .properties));
                 },
                 onEachFeature: function(feature, layer) {
                     const props = feature.properties;
@@ -301,7 +393,7 @@
                             app.syncSelectedLayer();
                         },
                         click: function() {
-                            app.handleFeatureClick(props);
+                            app.handleFeatureClick(props, layer);
                         }
                     });
 
@@ -359,10 +451,15 @@
                 const div = L.DomUtil.create('div', 'map-floating-card');
                 const collapsedClass = app.state.legendCollapsed ? ' is-collapsed' : '';
                 const toggleText = app.state.legendCollapsed ? 'Show' : 'Hide';
-                let html = '<div class="map-info-head"><h4>Legenda Capaian</h4><button id="toggle_legend_panel" type="button" class="legend-toggle-button">' + toggleText + '</button></div><div class="map-info-body legend-body' + collapsedClass + '"><p>Warna peta menunjukkan tingkat capaian PAD.</p>';
+                let html =
+                    '<div class="map-info-head"><h4>Legenda Capaian</h4><button id="toggle_legend_panel" type="button" class="legend-toggle-button">' +
+                    toggleText + '</button></div><div class="map-info-body legend-body' + collapsedClass +
+                    '"><p>Warna peta menunjukkan tingkat capaian PAD.</p>';
 
                 legendItems.forEach(function(item) {
-                    html += '<div class="legend-row"><span class="legend-swatch" style="background:' + item.color + ';"></span><span>' + item.label + '</span></div>';
+                    html +=
+                        '<div class="legend-row"><span class="legend-swatch" style="background:' +
+                        item.color + ';"></span><span>' + item.label + '</span></div>';
                 });
 
                 html += '</div>';
@@ -407,29 +504,35 @@
             const summary = this.state.mapSummary || this.aggregateProvinceSummary();
             const collapsedClass = this.state.infoCollapsed ? ' is-collapsed' : '';
             const toggleText = this.state.infoCollapsed ? 'Show' : 'Hide';
-            const title = scope.mode === 'kabupaten'
-                ? (scope.label || 'Kabupaten/Kota')
-                : (scope.mode === 'kecamatan' ? (scope.label || 'Kecamatan') : 'Ringkasan Jawa Timur');
-            const message = scope.mode === 'kabupaten'
-                ? 'Peta menampilkan kecamatan pada kabupaten/kota terpilih. Klik kecamatan untuk melihat detailnya.'
-                : (scope.mode === 'kecamatan'
+            const title = scope.mode === 'kabupaten' ?
+                (scope.label || 'Kabupaten/Kota') :
+                (scope.mode === 'kecamatan'
+                    ? (scope.label || 'Kecamatan')
+                    : (scope.mode === 'karisidenan' ? (scope.label || 'Karisidenan') : 'Ringkasan Jawa Timur'));
+            const message = scope.mode === 'kabupaten' ?
+                'Peta menampilkan kecamatan pada kabupaten/kota terpilih. Klik kecamatan untuk melihat detailnya.' :
+                (scope.mode === 'kecamatan'
                     ? 'Peta menampilkan kecamatan yang sedang dipilih beserta ringkasannya.'
-                    : 'Pilih wilayah di peta untuk memperbarui rincian secara otomatis.');
-            const wilayahLabel = this.state.kecamatan
-                ? this.state.kecamatan + ' | ' + (this.state.wilayah || '-')
-                : (this.state.wilayah || 'Semua Pemda (Jatim)');
-            const dashboardDetailRows = (((this.state.dashboard || {}).tables || {}).detail_akun || {}).rows || [];
-            const scopeTabs = scope.mode === 'kabupaten' && dashboardDetailRows.length
-                ? this.buildInfoTabsFromDashboard(dashboardDetailRows)
-                : '';
-            const scopeTabPanels = scope.mode === 'kabupaten' && dashboardDetailRows.length
-                ? this.buildInfoPanelsFromDashboard(dashboardDetailRows)
-                : '';
+                    : (scope.mode === 'karisidenan'
+                        ? 'Peta menampilkan seluruh wilayah dalam karisidenan aktif. Klik polygon untuk memilih detail kecamatan atau mode karisidenan.'
+                        : 'Pilih wilayah di peta untuk memperbarui rincian secara otomatis.'));
+            const wilayahLabel = this.state.kecamatan ?
+                this.state.kecamatan + ' | ' + (this.state.wilayah || '-') :
+                (this.state.wilayah || this.resolveKarisidenanLabel() || 'Semua Pemda (Jatim)');
+            const dashboardDetailRows = (((this.state.dashboard || {}).tables || {}).detail_akun || {}).rows ||
+                [];
+            const scopeTabs = (scope.mode === 'kabupaten' || scope.mode === 'karisidenan') && dashboardDetailRows.length ?
+                this.buildInfoTabsFromDashboard(dashboardDetailRows) :
+                '';
+            const scopeTabPanels = (scope.mode === 'kabupaten' || scope.mode === 'karisidenan') && dashboardDetailRows.length ?
+                this.buildInfoPanelsFromDashboard(dashboardDetailRows) :
+                '';
 
             this.infoControlContent.innerHTML =
                 '<div class="map-info-head">' +
                 '<h4>' + this.escapeHtml(title) + '</h4>' +
-                '<button id="toggle_info_panel" type="button" class="info-toggle-btn">' + toggleText + '</button>' +
+                '<button id="toggle_info_panel" type="button" class="info-toggle-btn">' + toggleText +
+                '</button>' +
                 '</div>' +
                 '<div class="map-info-body' + collapsedClass + '">' +
                 '<p>' + this.escapeHtml(message) + '</p>' +
@@ -439,7 +542,9 @@
                 this.buildMapStat('Tahun', this.state.tahun || 'Semua Tahun') +
                 this.buildMapStat('Jenis', this.state.jenis || 'Semua Jenis') +
                 this.buildMapStat('Wilayah', wilayahLabel) +
-                (scopeTabs ? '<div class="map-info-section"><div class="map-info-section-title">Ringkasan Jenis PAD</div>' + scopeTabs + scopeTabPanels + '</div>' : '') +
+                (scopeTabs ?
+                    '<div class="map-info-section"><div class="map-info-section-title">Ringkasan Jenis PAD</div>' +
+                    scopeTabs + scopeTabPanels + '</div>' : '') +
                 '</div>' +
                 '</div>';
 
@@ -461,8 +566,10 @@
 
             detailItems.forEach((item) => {
                 detailHtml +=
-                    '<div class="map-account-item map-tab-panel" data-tab-panel="' + this.escapeHtml(this.buildInfoTabKey(item.akun)) + '">' +
-                    '<div class="map-account-name">' + this.escapeHtml(this.shortAkunLabel(item.akun)) + '</div>' +
+                    '<div class="map-account-item map-tab-panel" data-tab-panel="' + this.escapeHtml(
+                        this.buildInfoTabKey(item.akun)) + '">' +
+                    '<div class="map-account-name">' + this.escapeHtml(this.shortAkunLabel(item.akun)) +
+                    '</div>' +
                     this.buildMapStat('Anggaran', this.formatCurrency(item.anggaran)) +
                     this.buildMapStat('Realisasi', this.formatCurrency(item.realisasi)) +
                     this.buildMapStat('Capaian', this.formatPercent(item.persentase)) +
@@ -472,7 +579,8 @@
             this.infoControlContent.innerHTML =
                 '<div class="map-info-head">' +
                 '<h4>' + this.escapeHtml(props.kecamatan || props.kabupaten || 'Wilayah') + '</h4>' +
-                '<button id="toggle_info_panel" type="button" class="info-toggle-btn">' + toggleText + '</button>' +
+                '<button id="toggle_info_panel" type="button" class="info-toggle-btn">' + toggleText +
+                '</button>' +
                 '</div>' +
                 '<div class="map-info-body' + collapsedClass + '">' +
                 '<p>Detail ini mengikuti wilayah yang sedang dipilih pada peta.</p>' +
@@ -480,13 +588,15 @@
                 '<div class="' + (hasTabs ? 'map-tab-panel' : '') + '" data-tab-panel="pad">' +
                 this.buildMapStat('Anggaran', this.formatCurrency(props.total_anggaran)) +
                 this.buildMapStat('Realisasi', this.formatCurrency(props.total_realisasi)) +
-                this.buildMapStat('Selisih', this.formatCurrency(parseFloat(props.total_realisasi || 0) - parseFloat(props.total_anggaran || 0))) +
+                this.buildMapStat('Selisih', this.formatCurrency(parseFloat(props.total_realisasi || 0) -
+                    parseFloat(props.total_anggaran || 0))) +
                 this.buildMapStat('Capaian', this.formatPercent(props.persentase)) +
                 (props.kecamatan ? this.buildMapStat('Kabupaten/Kota', props.kabupaten || '-') : '') +
                 '</div>' +
-                (hasTabs
-                    ? '<div class="map-info-section"><div class="map-info-section-title">Rincian Jenis PAD</div>' + detailHtml + '</div>'
-                    : '') +
+                (hasTabs ?
+                    '<div class="map-info-section"><div class="map-info-section-title">Rincian Jenis PAD</div>' +
+                    detailHtml + '</div>' :
+                    '') +
                 '</div>';
 
             if (hasTabs) {
@@ -495,12 +605,29 @@
         },
 
         buildPopupHtml: function(props) {
+            let actionHtml = '';
+
+            if (!props.kecamatan) {
+                actionHtml =
+                    '<div class="popup-actions">' +
+                    '<button type="button" class="popup-action-button popup-action-kecamatan" data-wilayah="' + this.escapeHtml(props.kabupaten || '') + '" data-karisidenan-id="' + this.escapeHtml(props.karisidenan_id || '') + '">Detail Kecamatan</button>' +
+                    '<button type="button" class="popup-action-button secondary popup-action-karisidenan" data-karisidenan-id="' + this.escapeHtml(props.karisidenan_id || '') + '">Karisidenan</button>' +
+                    '</div>';
+            }
+
             return '' +
-                '<div class="popup-title">' + this.escapeHtml(props.kecamatan || props.kabupaten || 'Wilayah') + '</div>' +
-                (props.kecamatan ? '<div class="popup-row"><span>Kabupaten/Kota</span><strong>' + this.escapeHtml(props.kabupaten || '-') + '</strong></div>' : '') +
-                '<div class="popup-row"><span>Anggaran</span><strong>' + this.formatCurrency(props.total_anggaran) + '</strong></div>' +
-                '<div class="popup-row"><span>Realisasi</span><strong>' + this.formatCurrency(props.total_realisasi) + '</strong></div>' +
-                '<div class="popup-row"><span>Capaian</span><strong>' + this.formatPercent(props.persentase) + '</strong></div>';
+                '<div class="popup-title">' + this.escapeHtml(props.kecamatan || props.kabupaten || 'Wilayah') +
+                '</div>' +
+                (!props.kecamatan ? '<div class="popup-row"><span>Karisidenan</span><strong>' + this.escapeHtml(props.karisidenan || '-') + '</strong></div>' : '') +
+                (props.kecamatan ? '<div class="popup-row"><span>Kabupaten/Kota</span><strong>' + this
+                    .escapeHtml(props.kabupaten || '-') + '</strong></div>' : '') +
+                '<div class="popup-row"><span>Anggaran</span><strong>' + this.formatCurrency(props
+                    .total_anggaran) + '</strong></div>' +
+                '<div class="popup-row"><span>Realisasi</span><strong>' + this.formatCurrency(props
+                    .total_realisasi) + '</strong></div>' +
+                '<div class="popup-row"><span>Capaian</span><strong>' + this.formatPercent(props.persentase) +
+                '</strong></div>' +
+                actionHtml;
         },
 
         syncSelectedLayer: function() {
@@ -562,7 +689,8 @@
                 total_realisasi: 0
             });
 
-            result.persentase = result.total_anggaran > 0 ? (result.total_realisasi / result.total_anggaran) * 100 : 0;
+            result.persentase = result.total_anggaran > 0 ? (result.total_realisasi / result.total_anggaran) *
+                100 : 0;
 
             return result;
         },
@@ -591,23 +719,20 @@
             return false;
         },
 
-        handleFeatureClick: function(props) {
+        handleFeatureClick: function(props, layer) {
             this.state.infoTab = 'pad';
 
-            if (this.state.mapScope && this.state.mapScope.mode === 'province') {
-                this.state.wilayah = props.kabupaten || '';
-                this.state.kecamatan = '';
-                $('#filter_wilayah').val(this.state.wilayah);
-                this.syncFilterMeta();
-                this.renderTopOverlay();
-                this.refreshAll();
+            if (!props.kecamatan && layer && layer.openPopup) {
+                layer.openPopup();
                 return;
             }
 
-            this.state.kecamatan = props.kecamatan || '';
-            this.syncFilterMeta();
-            this.renderTopOverlay();
-            this.refreshAll();
+            if (props.kecamatan) {
+                this.state.kecamatan = props.kecamatan || '';
+                this.syncFilterMeta();
+                this.renderTopOverlay();
+                this.refreshAll();
+            }
         },
 
         findMapDataByWilayah: function(wilayah) {
@@ -643,6 +768,16 @@
             return props.kecamatan || props.kabupaten || 'Wilayah';
         },
 
+        resolveKarisidenanLabel: function() {
+            const current = String(this.state.karisidenan || '');
+            const items = window.petaFilterOptions.karisidenanList || [];
+            const match = items.find(function(item) {
+                return String(item.id) === current;
+            });
+
+            return match ? match.nama_karisidenan : '';
+        },
+
         buildInfoTabs: function(detailItems) {
             const tabs = [{
                 key: 'pad',
@@ -669,7 +804,8 @@
 
             return '<div class="map-info-tabs">' + tabs.map((tab) => {
                 const activeClass = this.state.infoTab === tab.key ? ' is-active' : '';
-                return '<button type="button" class="map-info-tab' + activeClass + '" data-tab="' + this.escapeHtml(tab.key) + '">' + this.escapeHtml(tab.label) + '</button>';
+                return '<button type="button" class="map-info-tab' + activeClass + '" data-tab="' + this
+                    .escapeHtml(tab.key) + '">' + this.escapeHtml(tab.label) + '</button>';
             }).join('') + '</div>';
         },
 
@@ -696,7 +832,8 @@
 
             return '<div class="map-info-tabs">' + tabs.map((tab) => {
                 const activeClass = this.state.infoTab === tab.key ? ' is-active' : '';
-                return '<button type="button" class="map-info-tab' + activeClass + '" data-tab="' + this.escapeHtml(tab.key) + '">' + this.escapeHtml(tab.label) + '</button>';
+                return '<button type="button" class="map-info-tab' + activeClass + '" data-tab="' + this
+                    .escapeHtml(tab.key) + '">' + this.escapeHtml(tab.label) + '</button>';
             }).join('') + '</div>';
         },
 
@@ -707,7 +844,8 @@
                 '</div>';
 
             rows.forEach((row) => {
-                html += '<div class="map-account-item map-tab-panel" data-tab-panel="' + this.escapeHtml(this.buildInfoTabKey(row.Kategori)) + '">' +
+                html += '<div class="map-account-item map-tab-panel" data-tab-panel="' + this
+                    .escapeHtml(this.buildInfoTabKey(row.Kategori)) + '">' +
                     this.buildMapStat('Anggaran', this.formatCurrency(row.Anggaran)) +
                     this.buildMapStat('Realisasi', this.formatCurrency(row.Realisasi)) +
                     this.buildMapStat('Selisih', this.formatCurrency(row.Selisih)) +
@@ -760,7 +898,8 @@
         },
 
         buildMapStat: function(label, value) {
-            return '<div class="map-stat"><span>' + this.escapeHtml(label) + '</span><span>' + this.escapeHtml(value) + '</span></div>';
+            return '<div class="map-stat"><span>' + this.escapeHtml(label) + '</span><span>' + this.escapeHtml(
+                value) + '</span></div>';
         },
 
         toggleLoading: function(isLoading) {

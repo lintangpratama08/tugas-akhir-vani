@@ -255,7 +255,7 @@
 
     .map-filter-bar {
         display: grid;
-        grid-template-columns: repeat(3, minmax(150px, 1fr)) auto auto auto;
+        grid-template-columns: repeat(4, minmax(150px, 1fr)) auto auto auto;
         gap: 0.55rem;
         align-items: end;
         flex: 1;
@@ -512,6 +512,14 @@
         min-height: 320px;
     }
 
+    .charts-grid-detail {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .karisidenan-detail-shell[hidden] {
+        display: none !important;
+    }
+
     .detail-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -738,6 +746,29 @@
         color: var(--text);
     }
 
+    .popup-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.85rem;
+        flex-wrap: wrap;
+    }
+
+    .popup-action-button {
+        border: 0;
+        border-radius: 12px;
+        padding: 0.55rem 0.8rem;
+        font-weight: 700;
+        font-size: 0.82rem;
+        cursor: pointer;
+        color: #fff;
+        background: linear-gradient(135deg, #1e5cad 0%, #0b8f7a 100%);
+    }
+
+    .popup-action-button.secondary {
+        color: #1d4ed8;
+        background: rgba(37, 99, 235, 0.12);
+    }
+
     .leaflet-tooltip.region-label-tooltip {
         background: rgba(24, 49, 79, 0.9);
         border: 0;
@@ -868,7 +899,7 @@
 
     @media (max-width: 1400px) {
         .map-filter-bar {
-            grid-template-columns: repeat(3, minmax(0, 1fr)) auto auto auto;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) auto auto auto;
         }
     }
 
@@ -905,7 +936,8 @@
         .map-filter-bar,
         .summary-grid,
         .charts-grid,
-        .detail-grid {
+        .detail-grid,
+        .charts-grid-detail {
             grid-template-columns: 1fr;
         }
 

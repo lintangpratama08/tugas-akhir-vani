@@ -33,6 +33,7 @@
         window.petaFilterOptions = {
             tahunList: @json($tahunList),
             jenisAkun: @json($jenisAkun),
+            karisidenanList: @json($karisidenanList),
             wilayahList: @json($wilayahList)
         };
     </script>
