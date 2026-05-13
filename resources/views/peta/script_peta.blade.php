@@ -30,6 +30,12 @@
             this.renderTopOverlay();
             this.initMap();
             this.bindFilterEvents();
+
+            if (window.petaDashboardConfig.backendUnavailable) {
+                this.renderDefaultInfo();
+                return;
+            }
+
             this.refreshAll();
         },
 
@@ -335,8 +341,11 @@
                 app.renderMap(response);
                 app.renderLegend(response.legend || []);
                 app.refreshInfoPanel();
-            }).fail(function() {
-                alert('Gagal memuat data peta.');
+            }).fail(function(xhr) {
+                const message = xhr && xhr.responseJSON && xhr.responseJSON.message ?
+                    xhr.responseJSON.message :
+                    'Gagal memuat data peta.';
+                alert(message);
             }).always(function() {
                 app.toggleLoading(false);
             });
@@ -361,8 +370,11 @@
                     app.renderDashboard(response);
                 }
                 app.refreshInfoPanel();
-            }).fail(function() {
-                alert('Gagal memuat dashboard.');
+            }).fail(function(xhr) {
+                const message = xhr && xhr.responseJSON && xhr.responseJSON.message ?
+                    xhr.responseJSON.message :
+                    'Gagal memuat dashboard.';
+                alert(message);
             });
         },
 

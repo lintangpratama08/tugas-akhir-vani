@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class PetaDashboardService
@@ -18,44 +19,60 @@ class PetaDashboardService
 
     public function getFilterOptions()
     {
-        $tahunList = DB::table('tabel_pad')
-            ->select('tahun')
-            ->whereNotNull('tahun')
-            ->distinct()
-            ->orderBy('tahun', 'desc')
-            ->pluck('tahun');
+        $cacheMinutes = (int) env('PETA_FILTER_CACHE_MINUTES', 60);
 
-        $karisidenanList = DB::table('master_karisidenan')
-            ->select('id', 'nama_karisidenan')
-            ->orderBy('nama_karisidenan')
-            ->get();
+        return Cache::remember('peta.filter_options', now()->addMinutes(max($cacheMinutes, 1)), function () {
+            $tahunList = DB::table('tabel_pad')
+                ->select('tahun')
+                ->whereNotNull('tahun')
+                ->distinct()
+                ->orderBy('tahun', 'desc')
+                ->pluck('tahun');
 
-        $wilayahList = DB::table('peta as p')
-            ->leftJoin('master_karisidenan as mk', 'mk.id', '=', 'p.karisidenan_id')
-            ->select(
-                'p.kabupaten',
-                'p.karisidenan_id',
-                DB::raw('COALESCE(mk.nama_karisidenan, \'-\') as nama_karisidenan')
-            )
-            ->whereNotNull('p.kabupaten')
-            ->distinct()
-            ->orderBy('nama_karisidenan')
-            ->orderBy('p.kabupaten')
-            ->get();
+            $karisidenanList = DB::table('master_karisidenan')
+                ->select('id', 'nama_karisidenan')
+                ->orderBy('nama_karisidenan')
+                ->get();
 
+            $wilayahList = DB::table('peta as p')
+                ->leftJoin('master_karisidenan as mk', 'mk.id', '=', 'p.karisidenan_id')
+                ->select(
+                    'p.kabupaten',
+                    'p.karisidenan_id',
+                    DB::raw('COALESCE(mk.nama_karisidenan, \'-\') as nama_karisidenan')
+                )
+                ->whereNotNull('p.kabupaten')
+                ->distinct()
+                ->orderBy('nama_karisidenan')
+                ->orderBy('p.kabupaten')
+                ->get();
+
+            return [
+                'tahunList' => $tahunList,
+                'defaultTahun' => $tahunList->first(),
+                'jenisAkun' => $this->akunUtama,
+                'karisidenanList' => $karisidenanList,
+                'wilayahList' => $wilayahList,
+            ];
+        });
+    }
+
+    public function getFallbackFilterOptions()
+    {
         return [
-            'tahunList' => $tahunList,
-            'defaultTahun' => $tahunList->first(),
+            'tahunList' => collect(),
+            'defaultTahun' => null,
             'jenisAkun' => $this->akunUtama,
-            'karisidenanList' => $karisidenanList,
-            'wilayahList' => $wilayahList,
+            'karisidenanList' => collect(),
+            'wilayahList' => collect(),
         ];
     }
 
     public function normalizeFilters(Request $request)
     {
-        $filters = $this->getFilterOptions();
-        $defaultTahun = $filters['defaultTahun'];
+        $defaultTahun = $request->filled('tahun')
+            ? null
+            : $this->getFilterOptions()['defaultTahun'];
 
         return [
             'tahun' => $request->filled('tahun') ? (int) $request->input('tahun') : $defaultTahun,

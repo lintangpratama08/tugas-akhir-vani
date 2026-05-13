@@ -12,6 +12,13 @@
             <p>Peta interaktif pendapatan asli daerah untuk monitoring capaian kabupaten/kota di Jawa Timur.</p>
         </section>
 
+        @if (!empty($backendUnavailable))
+            <section class="page-warning-banner" role="alert">
+                <strong>Data server belum tersedia.</strong>
+                <span>{{ $backendErrorMessage }}</span>
+            </section>
+        @endif
+
         <section class="map-wrapper map-wrapper-full">
             <div id="map_top_overlay" class="map-top-overlay"></div>
             <div id="peta"></div>
@@ -27,7 +34,9 @@
             defaultTahun: @json($defaultTahun),
             exportUrl: @json(route('peta.export')),
             dataUrl: @json(route('peta.data')),
-            dashboardUrl: @json(route('peta.dashboard'))
+            dashboardUrl: @json(route('peta.dashboard')),
+            backendUnavailable: @json((bool) ($backendUnavailable ?? false)),
+            backendErrorMessage: @json($backendErrorMessage ?? null)
         };
 
         window.petaFilterOptions = {

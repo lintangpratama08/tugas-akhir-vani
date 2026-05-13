@@ -167,6 +167,26 @@
         margin-bottom: 1rem;
     }
 
+    .page-warning-banner {
+        margin: 0 0.5rem 1rem;
+        padding: 0.95rem 1rem;
+        border-radius: 16px;
+        border: 1px solid rgba(217, 178, 106, 0.38);
+        background: linear-gradient(135deg, rgba(217, 178, 106, 0.18), rgba(255, 255, 255, 0.96));
+        color: #6a4b0f;
+        box-shadow: 0 12px 24px rgba(106, 75, 15, 0.08);
+    }
+
+    .page-warning-banner strong,
+    .page-warning-banner span {
+        display: block;
+    }
+
+    .page-warning-banner span {
+        margin-top: 0.3rem;
+        color: #7c5a17;
+    }
+
     .map-top-overlay {
         position: absolute;
         top: 12px;
