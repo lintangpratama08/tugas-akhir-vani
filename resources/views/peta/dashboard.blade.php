@@ -1,12 +1,4 @@
 <section class="dashboard-shell">
-    <div class="dashboard-heading">
-        <div>
-            <span class="section-badge">Dashboard Analitik</span>
-            <h2 id="dashboard_scope_title">Ringkasan Jawa Timur</h2>
-            <p id="dashboard_scope_description">Memuat data wilayah dan performa PAD berdasarkan filter aktif.</p>
-        </div>
-    </div>
-
     <div class="summary-grid">
         <article class="summary-card accent-blue">
             <div class="summary-card-head">
@@ -14,7 +6,7 @@
                 <button type="button" class="card-detail-button icon-only dashboard-drawer-trigger" data-drawer-section="ringkasan" aria-label="Detail ringkasan"><i class="bi bi-info-circle"></i></button>
             </div>
             <strong id="summary_anggaran">Rp 0</strong>
-            <small>Target PAD pada cakupan wilayah aktif.</small>
+            <div class="summary-compare" id="summary_anggaran_compare">Vs tahun sebelumnya: data belum tersedia.</div>
         </article>
         <article class="summary-card accent-teal">
             <div class="summary-card-head">
@@ -22,7 +14,7 @@
                 <button type="button" class="card-detail-button icon-only dashboard-drawer-trigger" data-drawer-section="ringkasan" aria-label="Detail ringkasan"><i class="bi bi-info-circle"></i></button>
             </div>
             <strong id="summary_realisasi">Rp 0</strong>
-            <small>Akumulasi realisasi PAD sesuai filter.</small>
+            <div class="summary-compare" id="summary_realisasi_compare">Vs tahun sebelumnya: data belum tersedia.</div>
         </article>
         <article class="summary-card accent-orange">
             <div class="summary-card-head">
@@ -30,7 +22,7 @@
                 <button type="button" class="card-detail-button icon-only dashboard-drawer-trigger" data-drawer-section="ringkasan" aria-label="Detail ringkasan"><i class="bi bi-info-circle"></i></button>
             </div>
             <strong id="summary_selisih">Rp 0</strong>
-            <small>Gap antara realisasi dan anggaran.</small>
+            <div class="summary-compare" id="summary_selisih_compare">Vs tahun sebelumnya: data belum tersedia.</div>
         </article>
         <article class="summary-card accent-red">
             <div class="summary-card-head">
@@ -38,7 +30,7 @@
                 <button type="button" class="card-detail-button icon-only dashboard-drawer-trigger" data-drawer-section="ringkasan" aria-label="Detail ringkasan"><i class="bi bi-info-circle"></i></button>
             </div>
             <strong id="summary_persentase">0%</strong>
-            <small id="summary_status">Status kinerja akan tampil di sini.</small>
+            <div class="summary-compare" id="summary_persentase_compare">Vs tahun sebelumnya: data belum tersedia.</div>
         </article>
     </div>
 

@@ -18,14 +18,17 @@
             <a class="brand-lockup" href="{{ route('peta.index') }}">
                 <img src="{{ asset('logojatim.png') }}" alt="Logo Jawa Timur" class="brand-emblem-image">
                 <span class="brand-copy">
-                    <strong>Bapenda Provinsi Jawa Timur</strong>
-                    <small>Jl. Manyar Kertoarjo No.1, Airlangga, Gubeng, Surabaya</small>
+                    <strong>BAPPEDA PROVINSI JAWA TIMUR</strong>
+                    <small>Jl. Pahlawan 102-108, Surabaya</small>
                     <em>Dashboard Peta Pendapatan Asli Daerah</em>
                 </span>
             </a>
-            <div class="brand-pulse">
-                <span class="brand-pulse-dot"></span>
-                <span>Layanan Informasi PAD</span>
+            <div class="topbar-actions">
+                <div class="brand-pulse brand-pulse-title">
+                    <strong>Dashboard Peta Pendapatan Daerah</strong>
+                    <small>Peta interaktif Pendapatan Daerah Untuk Monitoring Anggaran</small>
+                    <small>PAD Kabupaten/Kota di Jawa Timur.</small>
+                </div>
             </div>
         </div>
     </nav>
@@ -39,21 +42,16 @@
     <script>
         (function() {
             const topbar = document.getElementById('governmentTopbar');
-            let lastY = window.scrollY;
+            if (!topbar) return;
 
-            window.addEventListener('scroll', function() {
-                const currentY = window.scrollY;
+            function syncTopbar() {
+                topbar.classList.toggle('topbar-hidden', window.scrollY > 8);
+            }
 
-                if (currentY > lastY && currentY > 80) {
-                    topbar.classList.add('topbar-hidden');
-                } else {
-                    topbar.classList.remove('topbar-hidden');
-                }
-
-                lastY = currentY;
-            }, {
+            window.addEventListener('scroll', syncTopbar, {
                 passive: true
             });
+            syncTopbar();
         })();
     </script>
     @yield('js')

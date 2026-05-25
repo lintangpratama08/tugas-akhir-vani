@@ -55,7 +55,35 @@
             $('#summary_realisasi').text(this.formatCurrency(summary.total_realisasi));
             $('#summary_selisih').text(this.formatCurrency(summary.selisih));
             $('#summary_persentase').text(this.formatPercent(summary.persentase));
-            $('#summary_status').text(this.resolvePerformanceLabel(summary.persentase) + ' | ' + (scope.label || 'Jawa Timur'));
+            $('#summary_anggaran_compare').html(this.formatComparisonHtml(summary.comparison, 'total_anggaran', 'currency'));
+            $('#summary_realisasi_compare').html(this.formatComparisonHtml(summary.comparison, 'total_realisasi', 'currency'));
+            $('#summary_selisih_compare').html(this.formatComparisonHtml(summary.comparison, 'selisih', 'currency'));
+            $('#summary_persentase_compare').html(this.formatComparisonHtml(summary.comparison, 'persentase', 'percent'));
+        };
+
+        app.formatComparisonHtml = function(comparison, key, format) {
+            if (!comparison || !comparison.available || !comparison.previous_summary) {
+                return '<div class="summary-compare-head"><span class="summary-compare-kicker">VS THN LALU</span></div><div class="summary-compare-main">Data belum tersedia</div>';
+            }
+
+            const previousYear = comparison.previous_year || 'tahun sebelumnya';
+            const previousSummary = comparison.previous_summary || {};
+            const diff = comparison.differences || {};
+            const previousValue = previousSummary[key] || 0;
+            const delta = diff[key] || 0;
+            const direction = delta > 0 ? 'naik' : (delta < 0 ? 'turun' : 'stabil');
+            const icon = delta > 0 ? 'bi-arrow-up-right' : (delta < 0 ? 'bi-arrow-down-right' : 'bi-dash-lg');
+            const badgeClass = delta > 0 ? 'is-up' : (delta < 0 ? 'is-down' : 'is-flat');
+            const deltaText = this.formatValue(Math.abs(delta), format);
+            const prevText = this.formatValue(previousValue, format);
+
+            return '' +
+                '<div class="summary-compare-head">' +
+                '<span class="summary-compare-kicker">VS ' + this.escapeHtml(previousYear) + '</span>' +
+                '<span class="summary-compare-badge ' + badgeClass + '"><i class="bi ' + icon + '"></i>' + this.escapeHtml(direction) + '</span>' +
+                '</div>' +
+                '<div class="summary-compare-main">' + this.escapeHtml(deltaText) + '</div>' +
+                '<div class="summary-compare-sub">vs ' + this.escapeHtml(prevText) + '</div>';
         };
 
         app.renderCharts = function(charts) {

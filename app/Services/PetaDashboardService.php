@@ -80,11 +80,16 @@ class PetaDashboardService
             'karisidenan' => $request->filled('karisidenan') ? (int) $request->input('karisidenan') : null,
             'wilayah' => $request->filled('wilayah') ? $request->input('wilayah') : null,
             'kecamatan' => $request->filled('kecamatan') ? $request->input('kecamatan') : null,
+            'map_mode' => $request->input('map_mode') === 'karisidenan' ? 'karisidenan' : 'kabupaten',
         ];
     }
 
     public function getMapPayload(array $filters)
     {
+        if (($filters['map_mode'] ?? 'kabupaten') === 'karisidenan' && empty($filters['karisidenan']) && empty($filters['wilayah'])) {
+            return $this->getKarisidenanOverviewPayload($filters);
+        }
+
         if (!empty($filters['wilayah'])) {
             return $this->getKecamatanMapPayload($filters);
         }
@@ -122,8 +127,62 @@ class PetaDashboardService
         return [
             'scope' => $this->buildScope($filters),
             'legend' => $this->getLegend(),
+            'legend_meta' => [
+                'title' => 'Legenda Capaian',
+                'description' => 'Warna peta menunjukkan tingkat capaian PAD.',
+            ],
             'summary' => $this->buildMapSummaryFromRows($data),
             'data' => $data,
+        ];
+    }
+
+    protected function getKarisidenanOverviewPayload(array $filters)
+    {
+        $aggregateSubquery = $this->aggregateByKarisidenanSubquery($filters);
+        $colorMap = $this->getKarisidenanColorMap();
+
+        $rows = DB::table('master_karisidenan as mk')
+            ->leftJoinSub($aggregateSubquery, 'agg', function ($join) {
+                $join->on('mk.id', '=', 'agg.karisidenan_id');
+            })
+            ->select(
+                'mk.id',
+                'mk.nama_karisidenan',
+                DB::raw('ST_AsGeoJSON(mk.wkb_geometry) as geojson'),
+                DB::raw('COALESCE(agg.total_anggaran, 0) as total_anggaran'),
+                DB::raw('COALESCE(agg.total_realisasi, 0) as total_realisasi'),
+                DB::raw('COALESCE(agg.persentase, 0) as persentase')
+            )
+            ->orderBy('mk.nama_karisidenan')
+            ->get()
+            ->map(function ($row) use ($colorMap) {
+                $row->feature_type = 'karisidenan';
+                $row->karisidenan = $row->nama_karisidenan;
+                $row->region_color = $colorMap[(int) $row->id] ?? '#2563eb';
+                return $row;
+            });
+
+        $legend = $rows->map(function ($row) {
+            return [
+                'label' => $row->nama_karisidenan,
+                'color' => $row->region_color,
+            ];
+        })->values()->all();
+
+        return [
+            'scope' => [
+                'mode' => 'province',
+                'label' => 'Semua Karisidenan Jawa Timur',
+                'parent' => 'Jawa Timur',
+                'description' => 'Peta menampilkan pembagian karisidenan. Klik karisidenan untuk melihat wilayah di dalamnya.',
+            ],
+            'legend' => $legend,
+            'legend_meta' => [
+                'title' => 'Legenda Karisidenan',
+                'description' => 'Warna membedakan masing-masing karisidenan di Jawa Timur.',
+            ],
+            'summary' => $this->buildMapSummaryFromRows($rows),
+            'data' => $rows,
         ];
     }
 
@@ -142,7 +201,9 @@ class PetaDashboardService
 
         return [
             'scope' => $scope,
-            'summary' => $summary,
+            'summary' => array_merge($summary, [
+                'comparison' => $this->buildSummaryComparison($filters, $summary),
+            ]),
             'karisidenan_detail' => $scope['mode'] === 'karisidenan'
                 ? $this->buildKarisidenanChartDetails($filters)
                 : null,
@@ -468,6 +529,21 @@ class PetaDashboardService
         ];
     }
 
+    protected function getKarisidenanColorMap()
+    {
+        $palette = ['#2563eb', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#0f766e', '#f97316'];
+
+        return DB::table('master_karisidenan')
+            ->select('id')
+            ->orderBy('nama_karisidenan')
+            ->get()
+            ->values()
+            ->mapWithKeys(function ($item, $index) use ($palette) {
+                return [(int) $item->id => $palette[$index % count($palette)]];
+            })
+            ->all();
+    }
+
     protected function padQuery(array $filters, $ignoreTahun)
     {
         if (!empty($filters['wilayah']) || !empty($filters['kecamatan'])) {
@@ -494,6 +570,18 @@ class PetaDashboardService
                 DB::raw('CASE WHEN SUM(tp.anggaran) > 0 THEN (SUM(tp.realisasi) / SUM(tp.anggaran)) * 100 ELSE 0 END as persentase')
             )
             ->groupBy('tp.kota');
+    }
+
+    protected function aggregateByKarisidenanSubquery(array $filters)
+    {
+        return $this->padQuery($filters, false)
+            ->select(
+                'p.karisidenan_id',
+                DB::raw('SUM(tp.anggaran) as total_anggaran'),
+                DB::raw('SUM(tp.realisasi) as total_realisasi'),
+                DB::raw('CASE WHEN SUM(tp.anggaran) > 0 THEN (SUM(tp.realisasi) / SUM(tp.anggaran)) * 100 ELSE 0 END as persentase')
+            )
+            ->groupBy('p.karisidenan_id');
     }
 
     protected function detailPerAkunByKota(array $filters)
@@ -529,6 +617,50 @@ class PetaDashboardService
             'total_realisasi' => round($realisasi, 2),
             'selisih' => round($realisasi - $anggaran, 2),
             'persentase' => $anggaran > 0 ? round(($realisasi / $anggaran) * 100, 2) : 0,
+        ];
+    }
+
+    protected function buildSummaryComparison(array $filters, array $currentSummary)
+    {
+        if (empty($filters['tahun'])) {
+            return [
+                'available' => false,
+                'previous_year' => null,
+                'previous_summary' => null,
+                'differences' => null,
+            ];
+        }
+
+        $previousYear = (int) $filters['tahun'] - 1;
+
+        if ($previousYear <= 0) {
+            return [
+                'available' => false,
+                'previous_year' => null,
+                'previous_summary' => null,
+                'differences' => null,
+            ];
+        }
+
+        $previousFilters = $filters;
+        $previousFilters['tahun'] = $previousYear;
+        $previousSummary = $this->querySummary($this->padQuery($previousFilters, false));
+
+        $hasPreviousData = ((float) $previousSummary['total_anggaran'] !== 0.0)
+            || ((float) $previousSummary['total_realisasi'] !== 0.0)
+            || ((float) $previousSummary['selisih'] !== 0.0)
+            || ((float) $previousSummary['persentase'] !== 0.0);
+
+        return [
+            'available' => $hasPreviousData,
+            'previous_year' => (string) $previousYear,
+            'previous_summary' => $previousSummary,
+            'differences' => [
+                'total_anggaran' => round($currentSummary['total_anggaran'] - $previousSummary['total_anggaran'], 2),
+                'total_realisasi' => round($currentSummary['total_realisasi'] - $previousSummary['total_realisasi'], 2),
+                'selisih' => round($currentSummary['selisih'] - $previousSummary['selisih'], 2),
+                'persentase' => round($currentSummary['persentase'] - $previousSummary['persentase'], 2),
+            ],
         ];
     }
 

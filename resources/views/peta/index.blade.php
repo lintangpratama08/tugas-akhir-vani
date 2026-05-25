@@ -6,12 +6,6 @@
 
 @section('content')
     <div class="page-shell page-shell-map">
-        <section class="page-title-block">
-            <span class="page-title-kicker">Portal Informasi Bapenda Jatim</span>
-            <h1>DASHBOARD PAD JAWA TIMUR</h1>
-            <p>Peta interaktif pendapatan asli daerah untuk monitoring capaian kabupaten/kota di Jawa Timur.</p>
-        </section>
-
         @if (!empty($backendUnavailable))
             <section class="page-warning-banner" role="alert">
                 <strong>Data server belum tersedia.</strong>
@@ -19,12 +13,40 @@
             </section>
         @endif
 
+        <section class="map-floating-dock-shell">
+            <div id="map_filter_dock" class="map-floating-dock"></div>
+        </section>
+
         <section class="map-wrapper map-wrapper-full">
             <div id="map_top_overlay" class="map-top-overlay"></div>
             <div id="peta"></div>
         </section>
 
         @include('peta.dashboard')
+
+        <footer class="page-footer">
+            <div class="page-footer-main">
+                <div class="page-footer-brand">
+                    <span class="page-footer-kicker">Dashboard PAD Jawa Timur</span>
+                    <h3>BAPPEDA JAWA TIMUR</h3>
+                    <p>Portal visual untuk monitoring pendapatan daerah, evaluasi anggaran PAD, dan pembacaan capaian
+                        wilayah kabupaten/kota di Jawa Timur.</p>
+                    <div class="page-footer-tags">
+                        <span><i class="bi bi-shield-check"></i> Informasi terkurasi</span>
+                        <span><i class="bi bi-lightning-charge"></i> Insight cepat</span>
+                    </div>
+                </div>
+                <div class="page-footer-meta">
+                    <span><i class="bi bi-geo-alt"></i> Jl. Pahlawan 102-108, Surabaya</span>
+                    <span><i class="bi bi-bar-chart-line"></i> Monitoring PAD Terintegrasi</span>
+                    <span><i class="bi bi-map"></i> Peta dan dashboard dalam satu layar</span>
+                </div>
+            </div>
+            <div class="page-footer-bottom">
+                <span>&copy; {{ date('Y') }} BAPPEDA Jawa Timur</span>
+                <span>Dashboard Peta Pendapatan Daerah</span>
+            </div>
+        </footer>
     </div>
 @endsection
 
