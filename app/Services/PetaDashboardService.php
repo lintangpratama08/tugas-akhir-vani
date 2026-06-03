@@ -586,16 +586,19 @@ class PetaDashboardService
 
     protected function detailPerAkunByKota(array $filters)
     {
+        $akunExpression = $this->akunGroupingExpression('tp.akun');
+        $akunOrderExpression = $this->akunOrderingExpression($akunExpression);
+
         return $this->padQuery($filters, false)
             ->select(
                 'tp.kota',
-                'tp.akun',
+                DB::raw($akunExpression . ' as akun'),
                 DB::raw('SUM(tp.anggaran) as anggaran'),
                 DB::raw('SUM(tp.realisasi) as realisasi'),
                 DB::raw('CASE WHEN SUM(tp.anggaran) > 0 THEN (SUM(tp.realisasi) / SUM(tp.anggaran)) * 100 ELSE 0 END as persentase')
             )
-            ->groupBy('tp.kota', 'tp.akun')
-            ->orderBy('tp.akun')
+            ->groupBy('tp.kota', DB::raw($akunExpression))
+            ->orderByRaw($akunOrderExpression)
             ->get()
             ->groupBy('kota');
     }
@@ -666,14 +669,17 @@ class PetaDashboardService
 
     protected function queryPerJenis(Builder $query)
     {
+        $akunExpression = $this->akunGroupingExpression('tp.akun');
+        $akunOrderExpression = $this->akunOrderingExpression($akunExpression);
+
         return $query
             ->select(
-                'tp.akun',
+                DB::raw($akunExpression . ' as akun'),
                 DB::raw('SUM(tp.anggaran) as total_anggaran'),
                 DB::raw('SUM(tp.realisasi) as total_realisasi')
             )
-            ->groupBy('tp.akun')
-            ->orderBy('tp.akun')
+            ->groupBy(DB::raw($akunExpression))
+            ->orderByRaw($akunOrderExpression)
             ->get()
             ->map(function ($row) {
                 $anggaran = (float) $row->total_anggaran;
@@ -1039,6 +1045,9 @@ class PetaDashboardService
 
     protected function detailPerAkunByKecamatan(array $filters)
     {
+        $akunExpression = $this->akunGroupingExpression('tp.akun');
+        $akunOrderExpression = $this->akunOrderingExpression($akunExpression);
+
         return DB::table('tabel_pad_kecamatan as tp')
             ->join('data_kec as dk', function ($join) {
                 $join->on('dk.kdcpum', '=', 'tp.kdcpum');
@@ -1065,13 +1074,13 @@ class PetaDashboardService
             })
             ->select(
                 'dk.id as kec_id',
-                'tp.akun',
+                DB::raw($akunExpression . ' as akun'),
                 DB::raw('SUM(tp.anggaran) as anggaran'),
                 DB::raw('SUM(tp.realisasi) as realisasi'),
                 DB::raw('CASE WHEN SUM(tp.anggaran) > 0 THEN (SUM(tp.realisasi) / SUM(tp.anggaran)) * 100 ELSE 0 END as persentase')
             )
-            ->groupBy('dk.id', 'tp.akun')
-            ->orderBy('tp.akun')
+            ->groupBy('dk.id', DB::raw($akunExpression))
+            ->orderByRaw($akunOrderExpression)
             ->get()
             ->groupBy('kec_id');
     }
@@ -1219,6 +1228,28 @@ class PetaDashboardService
     protected function shortAkunLabel($akun)
     {
         return str_replace('Pendapatan Asli Daerah - ', '', $akun);
+    }
+
+    protected function akunGroupingExpression($column)
+    {
+        return "CASE
+            WHEN {$column} ILIKE '%Pajak Daerah%' THEN 'Pajak Daerah'
+            WHEN {$column} ILIKE '%Retribusi Daerah%' THEN 'Retribusi Daerah'
+            WHEN {$column} ILIKE '%Hasil Pengelolaan Kekayaan Daerah yang Dipisahkan%' THEN 'Hasil Pengelolaan Kekayaan Daerah yang Dipisahkan'
+            WHEN {$column} ILIKE '%Lain-Lain PAD yang Sah%' THEN 'Lain-Lain PAD yang Sah'
+            ELSE TRIM(REPLACE({$column}, 'Pendapatan Asli Daerah - ', ''))
+        END";
+    }
+
+    protected function akunOrderingExpression($akunExpression)
+    {
+        return "CASE
+            WHEN {$akunExpression} = 'Pajak Daerah' THEN 1
+            WHEN {$akunExpression} = 'Retribusi Daerah' THEN 2
+            WHEN {$akunExpression} = 'Hasil Pengelolaan Kekayaan Daerah yang Dipisahkan' THEN 3
+            WHEN {$akunExpression} = 'Lain-Lain PAD yang Sah' THEN 4
+            ELSE 99
+        END";
     }
 
     protected function makeChart($key, $title, $description, $type, array $labels, array $datasets, array $meta)

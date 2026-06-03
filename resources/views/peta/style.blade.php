@@ -960,6 +960,11 @@
 
     .table-dashboard { margin-bottom: 0; font-size: 0.92rem; }
 
+    .table-responsive {
+        border-radius: 18px;
+        overflow: hidden;
+    }
+
     .table-dashboard thead th {
         font-size: 0.82rem;
         text-transform: uppercase;
@@ -969,6 +974,72 @@
     }
 
     .table-dashboard tbody td { vertical-align: middle; }
+
+    .table-pagination-shell {
+        margin-top: 0.9rem;
+    }
+
+    .table-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.9rem;
+        flex-wrap: wrap;
+        padding: 0.85rem 0.95rem;
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(32, 77, 122, 0.06), rgba(200, 155, 67, 0.08));
+        border: 1px solid rgba(23, 58, 100, 0.08);
+    }
+
+    .table-pagination-meta {
+        color: #4b6078;
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+
+    .table-pagination-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+    }
+
+    .table-pagination-button {
+        min-width: 40px;
+        height: 40px;
+        padding: 0 0.8rem;
+        border: 1px solid rgba(23, 58, 100, 0.10);
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(243, 247, 251, 0.96));
+        color: #1d4b7c;
+        font-size: 0.88rem;
+        font-weight: 800;
+        box-shadow: 0 10px 18px rgba(15, 23, 42, 0.05);
+        transition: 0.22s ease;
+    }
+
+    .table-pagination-button:hover:not(:disabled) {
+        transform: translateY(-1px);
+        border-color: rgba(37, 99, 235, 0.28);
+    }
+
+    .table-pagination-button.is-active {
+        border-color: transparent;
+        background: linear-gradient(135deg, #1e5cad 0%, #0b8f7a 100%);
+        color: #fff;
+        box-shadow: 0 12px 22px rgba(30, 92, 173, 0.22);
+    }
+
+    .table-pagination-button.is-disabled,
+    .table-pagination-button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+
+    .chart-card[data-drawer-section="kontribusi"] .chart-canvas {
+        min-height: 360px;
+    }
 
     .leaflet-container { background: #dbeafe; }
 
@@ -1623,6 +1694,15 @@
 
         .dashboard-drawer {
             width: 100%;
+        }
+
+        .table-pagination {
+            align-items: stretch;
+        }
+
+        .table-pagination-actions {
+            width: 100%;
+            justify-content: flex-start;
         }
     }
 </style>

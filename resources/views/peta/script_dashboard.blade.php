@@ -1,5 +1,6 @@
 <script>
     (function(app) {
+        app.tableStates = app.tableStates || {};
         app.chartDefinitions = {
             perbandingan_akun: {
                 canvasId: 'chart_perbandingan_akun',
@@ -120,7 +121,8 @@
             const appInstance = this;
             const isLine = chart.type === 'line';
             const isPie = chart.type === 'doughnut' || chart.type === 'pie';
-            const isHorizontal = chart.options && chart.options.indexAxis === 'y';
+            const isPopulationPerThousand = chart.key === 'kontribusi' && /1\.000 Penduduk/i.test(chart.title || '');
+            const isHorizontal = isPopulationPerThousand || (chart.options && chart.options.indexAxis === 'y');
             const primaryFormat = chart.datasets[0] ? chart.datasets[0].format : 'currency';
             const formattedLabels = (chart.labels || []).map(function(label) {
                 if (isPie) {
@@ -174,9 +176,10 @@
                         display: false
                     },
                     ticks: {
-                        autoSkip: false,
-                        maxRotation: 0,
-                        minRotation: 0,
+                        autoSkip: chart.labels.length > 8,
+                        maxRotation: chart.labels.length > 8 ? 34 : 0,
+                        minRotation: chart.labels.length > 8 ? 34 : 0,
+                        padding: 10,
                         font: {
                             size: 11
                         }
@@ -203,6 +206,11 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     indexAxis: isHorizontal ? 'y' : 'x',
+                    layout: {
+                        padding: {
+                            bottom: isPopulationPerThousand ? 8 : 0
+                        }
+                    },
                     scales: scales,
                     plugins: {
                         legend: {
@@ -239,27 +247,108 @@
         };
 
         app.renderTable = function(tableId, rows) {
+            this.tableStates[tableId] = {
+                rows: Array.isArray(rows) ? rows : [],
+                currentPage: 1,
+                pageSize: 10
+            };
+
+            this.renderTablePage(tableId);
+        };
+
+        app.renderTablePage = function(tableId) {
             const table = $('#' + tableId);
             const thead = table.find('thead');
             const tbody = table.find('tbody');
+            const state = this.tableStates[tableId] || {
+                rows: [],
+                currentPage: 1,
+                pageSize: 10
+            };
+            const rows = state.rows || [];
+            const paginationHost = this.ensurePaginationHost(tableId);
 
             if (!rows.length) {
                 thead.html('');
                 tbody.html('<tr><td colspan="10" class="text-center text-muted">Tidak ada data.</td></tr>');
+                paginationHost.html('');
                 return;
             }
 
             const headers = Object.keys(rows[0]);
+            const totalPages = Math.max(1, Math.ceil(rows.length / state.pageSize));
+            const currentPage = Math.min(state.currentPage, totalPages);
+            const startIndex = (currentPage - 1) * state.pageSize;
+            const pageRows = rows.slice(startIndex, startIndex + state.pageSize);
+
+            state.currentPage = currentPage;
+            this.tableStates[tableId] = state;
+
             thead.html('<tr>' + headers.map(function(header) {
                 return '<th>' + app.escapeHtml(header) + '</th>';
             }).join('') + '</tr>');
 
-            tbody.html(rows.map(function(row) {
+            tbody.html(pageRows.map(function(row) {
                 return '<tr>' + headers.map(function(header) {
                     const value = row[header];
                     return '<td>' + app.escapeHtml(app.formatCellValue(header, value)) + '</td>';
                 }).join('') + '</tr>';
             }).join(''));
+
+            paginationHost.html(this.buildPaginationHtml(tableId, rows.length, currentPage, state.pageSize));
+        };
+
+        app.ensurePaginationHost = function(tableId) {
+            const table = $('#' + tableId);
+            const wrapper = table.closest('.table-responsive');
+            let host = wrapper.next('.table-pagination-shell[data-table-pagination="' + tableId + '"]');
+
+            if (!host.length) {
+                host = $('<div class="table-pagination-shell" data-table-pagination="' + tableId + '"></div>');
+                wrapper.after(host);
+            }
+
+            return host;
+        };
+
+        app.buildPaginationHtml = function(tableId, totalRows, currentPage, pageSize) {
+            const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+            const startRow = totalRows ? ((currentPage - 1) * pageSize) + 1 : 0;
+            const endRow = Math.min(currentPage * pageSize, totalRows);
+
+            if (totalPages <= 1) {
+                return '<div class="table-pagination-meta">Menampilkan ' + startRow + '-' + endRow + ' dari ' + totalRows + ' data</div>';
+            }
+
+            return '' +
+                '<div class="table-pagination">' +
+                '<div class="table-pagination-meta">Menampilkan ' + startRow + '-' + endRow + ' dari ' + totalRows + ' data</div>' +
+                '<div class="table-pagination-actions">' +
+                this.buildPaginationButton(tableId, currentPage - 1, currentPage === 1, '<i class="bi bi-chevron-left"></i>') +
+                this.buildPaginationNumberButtons(tableId, currentPage, totalPages) +
+                this.buildPaginationButton(tableId, currentPage + 1, currentPage === totalPages, '<i class="bi bi-chevron-right"></i>') +
+                '</div>' +
+                '</div>';
+        };
+
+        app.buildPaginationNumberButtons = function(tableId, currentPage, totalPages) {
+            const buttons = [];
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, startPage + 4);
+            const normalizedStart = Math.max(1, endPage - 4);
+
+            for (let page = normalizedStart; page <= endPage; page += 1) {
+                buttons.push(this.buildPaginationButton(tableId, page, false, String(page), page === currentPage));
+            }
+
+            return buttons.join('');
+        };
+
+        app.buildPaginationButton = function(tableId, page, disabled, label, isActive = false) {
+            const disabledClass = disabled ? ' is-disabled' : '';
+            const activeClass = isActive ? ' is-active' : '';
+
+            return '<button type="button" class="table-pagination-button' + disabledClass + activeClass + '" data-table-id="' + this.escapeHtml(tableId) + '" data-page="' + page + '"' + (disabled ? ' disabled' : '') + '>' + label + '</button>';
         };
 
         app.formatCellValue = function(header, value) {
@@ -438,6 +527,19 @@
 
             $(document).off('click', '#close_karisidenan_detail').on('click', '#close_karisidenan_detail', function() {
                 appInstance.closeKarisidenanTrendDetail();
+            });
+
+            $(document).off('click', '.table-pagination-button').on('click', '.table-pagination-button', function() {
+                const tableId = $(this).data('table-id');
+                const page = parseInt($(this).data('page'), 10);
+                const tableState = appInstance.tableStates[tableId];
+
+                if (!tableState || Number.isNaN(page) || page < 1) {
+                    return;
+                }
+
+                tableState.currentPage = page;
+                appInstance.renderTablePage(tableId);
             });
         };
 
