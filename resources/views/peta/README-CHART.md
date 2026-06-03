@@ -237,3 +237,172 @@ Jika ada kolom yang ingin Anda ganti, cukup beri tahu:
 - aturan relasinya
 
 lalu service bisa disesuaikan langsung.
+
+query isi kecamatan
+ALTER SEQUENCE tabel_pad_kecamatan_id_seq RESTART WITH 1;
+INSERT INTO tabel_pad_kecamatan (
+    id_pad,
+    kdcpum,
+    kdpkab,
+    kdppum,
+    wadmkc,
+    wadmkk,
+    wadmpr,
+    ogc_fid,
+    kode,
+    kabupaten,
+    province,
+    akun,
+    kota,
+    tahun,
+    anggaran,
+    realisasi,
+    persentase
+)
+
+WITH base AS (
+    SELECT
+        tp.id_pad,
+        tp.akun,
+        tp.kota,
+        tp.tahun,
+        tp.anggaran,
+        tp.realisasi,
+        tp.persentase,
+
+        dk.kdcpum,
+        dk.kdpkab,
+        dk.kdppum,
+        dk.wadmkc,
+        dk.wadmkk,
+        dk.wadmpr,
+
+        p.ogc_fid,
+        p.kode,
+        p.kabupaten,
+        p.province,
+
+        random() AS w_anggaran,
+        random() AS w_realisasi,
+        random() AS w_persentase
+
+    FROM tabel_pad tp
+
+    JOIN peta p
+        ON p.ogc_fid = tp.kota
+
+    JOIN data_kec dk
+        ON REPLACE(dk.kdpkab, '.', '')::INT = p.kode
+),
+
+calc AS (
+    SELECT
+        b.*,
+
+        SUM(w_anggaran) OVER (PARTITION BY id_pad) AS sum_w_anggaran,
+        SUM(w_realisasi) OVER (PARTITION BY id_pad) AS sum_w_realisasi,
+        SUM(w_persentase) OVER (PARTITION BY id_pad) AS sum_w_persentase,
+
+        ROW_NUMBER() OVER (
+            PARTITION BY id_pad
+            ORDER BY kdcpum
+        ) AS rn,
+
+        COUNT(*) OVER (
+            PARTITION BY id_pad
+        ) AS cnt
+
+    FROM base b
+),
+
+rounded AS (
+    SELECT
+        c.*,
+
+        CASE
+            WHEN rn < cnt THEN
+                ROUND(
+                    (anggaran * w_anggaran / sum_w_anggaran)::numeric,
+                    2
+                )
+        END AS anggaran_part,
+
+        CASE
+            WHEN rn < cnt THEN
+                ROUND(
+                    (realisasi * w_realisasi / sum_w_realisasi)::numeric,
+                    2
+                )
+        END AS realisasi_part,
+
+        CASE
+            WHEN rn < cnt THEN
+                ROUND(
+                    (persentase * w_persentase / sum_w_persentase)::numeric,
+                    2
+                )
+        END AS persentase_part
+
+    FROM calc c
+),
+
+final AS (
+    SELECT
+        r.*,
+
+        SUM(COALESCE(anggaran_part, 0))
+            OVER (PARTITION BY id_pad) AS sum_anggaran_nonlast,
+
+        SUM(COALESCE(realisasi_part, 0))
+            OVER (PARTITION BY id_pad) AS sum_realisasi_nonlast,
+
+        SUM(COALESCE(persentase_part, 0))
+            OVER (PARTITION BY id_pad) AS sum_persentase_nonlast
+
+    FROM rounded r
+)
+
+SELECT
+    id_pad,
+
+    kdcpum,
+    kdpkab,
+    kdppum,
+    wadmkc,
+    wadmkk,
+    wadmpr,
+
+    ogc_fid,
+    kode,
+    kabupaten,
+    province,
+
+    akun,
+    kota,
+    tahun,
+
+    CASE
+        WHEN rn < cnt THEN anggaran_part
+        ELSE ROUND(
+            (anggaran - sum_anggaran_nonlast)::numeric,
+            2
+        )
+    END AS anggaran,
+
+    CASE
+        WHEN rn < cnt THEN realisasi_part
+        ELSE ROUND(
+            (realisasi - sum_realisasi_nonlast)::numeric,
+            2
+        )
+    END AS realisasi,
+
+    CASE
+        WHEN rn < cnt THEN persentase_part
+        ELSE ROUND(
+            (persentase - sum_persentase_nonlast)::numeric,
+            2
+        )
+    END AS persentase
+
+FROM final;
