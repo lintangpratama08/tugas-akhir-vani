@@ -20,7 +20,7 @@
                     <img src="{{ asset('logojatim.png') }}" alt="Logo Jawa Timur" class="brand-emblem-image">
                     <span class="brand-copy">
                         <strong>Bappeda <span>Jawa Timur</span></strong>
-                        <small>Dashboard peta pendapatan daerah terintegrasi</small>
+                        <small>Dashboard Peta Pendapatan Asli Daerah terintegrasi</small>
                     </span>
                 </a>
                 <div class="topbar-actions">

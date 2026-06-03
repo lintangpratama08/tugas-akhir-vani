@@ -97,7 +97,7 @@
     <div class="container-fluid">
         <div class="dashboard-header">
             <h1 class="text-center mb-3">📊 Dashboard Visualisasi & Analisis Pajak Daerah</h1>
-            <h4 class="text-center text-muted">Badan Pendapatan Daerah (Bapenda) Kabupaten Lamongan</h4>
+            <h4 class="text-center text-muted">Badan Pendapatan Asli Daerah (Bapenda) Kabupaten Lamongan</h4>
             <p class="text-center text-muted">Periode 2021-2025</p>
         </div>
 

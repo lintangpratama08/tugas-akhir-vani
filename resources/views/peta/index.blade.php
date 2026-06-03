@@ -23,7 +23,7 @@
                                 <span class="hero-kicker"><i class="bi bi-stars"></i> Dashboard unggulan Jawa Timur</span>
                                 <h1>Memetakan Kinerja PAD Jawa Timur dengan Visual yang Lebih Tajam dan Modern.</h1>
                                 <p>Gabungan peta interaktif, analisis realisasi, dan pemantauan wilayah aktif untuk membantu
-                                    membaca arah pendapatan daerah dengan lebih cepat.</p>
+                                    membaca arah Pendapatan Asli Daerah dengan lebih cepat.</p>
                                 <div class="hero-meta-row">
                                     <span><i class="bi bi-map"></i> 38 kabupaten/kota</span>
                                     <span><i class="bi bi-bar-chart-line"></i> Insight anggaran dan realisasi</span>
@@ -85,7 +85,7 @@
                 <div class="page-footer-brand">
                     <span class="page-footer-kicker">Dashboard PAD Jawa Timur</span>
                     <h3>BAPPEDA JAWA TIMUR</h3>
-                    <p>Portal visual untuk monitoring pendapatan daerah, evaluasi anggaran PAD, dan pembacaan capaian
+                    <p>Portal visual untuk monitoring Pendapatan Asli Daerah, evaluasi anggaran PAD, dan pembacaan capaian
                         wilayah kabupaten/kota di Jawa Timur.</p>
                     <div class="page-footer-tags">
                         <span><i class="bi bi-shield-check"></i> Informasi terkurasi</span>
@@ -100,7 +100,7 @@
             </div>
             <div class="page-footer-bottom">
                 <span>&copy; {{ date('Y') }} Vani Febianti</span>
-                <span>Dashboard Peta Pendapatan Daerah</span>
+                <span>Dashboard Peta Pendapatan Asli Daerah</span>
             </div>
         </footer>
     </div>
