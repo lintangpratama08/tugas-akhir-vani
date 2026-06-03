@@ -198,6 +198,7 @@ class PetaDashboardService
         $rankingWilayah = $this->queryRankingWilayah($filters, $scope['mode']);
         $kontribusi = $this->queryKontribusi($filters, $scope['mode']);
         $pertumbuhan = $this->buildPertumbuhanSeries($trendTahunan);
+        $isRegionalScope = in_array($scope['mode'], ['province', 'karisidenan'], true);
 
         return [
             'scope' => $scope,
@@ -254,14 +255,14 @@ class PetaDashboardService
                 ),
                 $this->makeChart(
                     'peringkat',
-                    $scope['mode'] === 'province' ? 'PAD per Penduduk Tertinggi' : 'Peringkat Kinerja Jenis PAD',
-                    $scope['mode'] === 'province'
+                    $isRegionalScope ? 'PAD per Penduduk Tertinggi' : 'Peringkat Kinerja Jenis PAD',
+                    $isRegionalScope
                         ? 'Wilayah diurutkan berdasarkan realisasi PAD per penduduk, sehingga wilayah dengan penduduk lebih kecil tetap bisa terlihat lebih efektif.'
                         : 'Perbandingan persentase tiap jenis PAD di wilayah yang dipilih.',
                     'bar',
                     $rankingWilayah->pluck('label')->all(),
                     [
-                        $this->dataset($scope['mode'] === 'province' ? 'PAD per Penduduk' : 'Persentase Realisasi', $rankingWilayah->pluck('value')->all(), $scope['mode'] === 'province' ? 'currency' : 'percent', '#ef4444'),
+                        $this->dataset($isRegionalScope ? 'PAD per Penduduk' : 'Persentase Realisasi', $rankingWilayah->pluck('value')->all(), $isRegionalScope ? 'currency' : 'percent', '#ef4444'),
                     ],
                     [
                         'indexAxis' => 'y',
@@ -300,22 +301,25 @@ class PetaDashboardService
                 ),
                 $this->makeChart(
                     'kontribusi',
-                    $scope['mode'] === 'province' ? 'PAD per 1.000 Penduduk' : 'Kontribusi Jenis PAD',
-                    $scope['mode'] === 'province'
-                        ? 'Perbandingan realisasi PAD terhadap jumlah penduduk dalam skala per 1.000 penduduk.'
+                    $isRegionalScope ? 'Realisasi PAD Tertinggi' : 'Kontribusi Jenis PAD',
+                    $isRegionalScope
+                        ? 'Wilayah diurutkan berdasarkan total realisasi PAD untuk menunjukkan kontributor nominal terbesar.'
                         : 'Nilai realisasi terbesar per jenis PAD di wilayah aktif.',
                     'bar',
                     $kontribusi->pluck('label')->all(),
                     [
-                        $this->dataset($scope['mode'] === 'province' ? 'PAD per 1.000 Penduduk' : 'Realisasi', $kontribusi->pluck('value')->all(), 'currency', '#0f766e'),
+                        $this->dataset('Realisasi', $kontribusi->pluck('value')->all(), 'currency', '#0f766e'),
                     ],
                     [
+                        'indexAxis' => $isRegionalScope ? 'y' : 'x',
                         'rows' => $kontribusi->map(function ($row) {
                             return [
                                 'Kategori' => $row['label'],
                                 ($row['raw_label'] ?? 'Nilai') => $row['value'],
                                 'Penduduk' => $row['population'] ?? null,
                                 'Realisasi' => $row['realisasi'] ?? null,
+                                'Anggaran' => $row['anggaran'] ?? null,
+                                'Persentase (%)' => $row['persentase'] ?? null,
                             ];
                         })->all(),
                     ]
@@ -780,21 +784,24 @@ class PetaDashboardService
             ->select(
                 'p.kabupaten as wilayah',
                 DB::raw('COALESCE(pop.jumlah_penduduk, 0) as jumlah_penduduk'),
+                DB::raw('SUM(tp.anggaran) as total_anggaran'),
                 DB::raw('SUM(tp.realisasi) as total_realisasi')
             )
             ->groupBy('p.kabupaten', 'pop.jumlah_penduduk')
             ->get()
             ->map(function ($row) {
+                $anggaran = (float) $row->total_anggaran;
                 $realisasi = (float) $row->total_realisasi;
                 $penduduk = (float) $row->jumlah_penduduk;
-                $perSeribu = $penduduk > 0 ? ($realisasi / $penduduk) * 1000 : 0;
 
                 return [
                     'label' => $row->wilayah,
-                    'value' => round($perSeribu, 2),
-                    'raw_label' => 'PAD per 1.000 Penduduk',
+                    'value' => round($realisasi, 2),
+                    'raw_label' => 'Realisasi',
                     'population' => round($penduduk, 2),
+                    'anggaran' => round($anggaran, 2),
                     'realisasi' => round($realisasi, 2),
+                    'persentase' => $anggaran > 0 ? round(($realisasi / $anggaran) * 100, 2) : 0,
                 ];
             })
             ->sortByDesc('value')
@@ -1141,12 +1148,30 @@ class PetaDashboardService
             ->pluck('kabupaten');
 
         $details = [
-            'perbandingan_akun' => [],
-            'tren_tahunan' => [],
-            'peringkat' => [],
-            'komposisi' => [],
-            'kontribusi' => [],
-            'pertumbuhan' => [],
+            'perbandingan_akun' => $this->karisidenanDetailBucket(
+                'Perbandingan Anggaran dan Realisasi per Wilayah',
+                'Setiap kartu menampilkan perbandingan anggaran dan realisasi untuk jenis PAD di wilayah dalam karisidenan aktif.'
+            ),
+            'tren_tahunan' => $this->karisidenanDetailBucket(
+                'Tren Tahunan per Wilayah',
+                'Setiap kartu menampilkan tren anggaran dan realisasi lintas tahun untuk satu wilayah.'
+            ),
+            'peringkat' => $this->karisidenanDetailBucket(
+                'Peringkat Kinerja Jenis PAD per Wilayah',
+                'Setiap kartu menampilkan persentase realisasi tiap jenis PAD pada wilayah dalam karisidenan aktif.'
+            ),
+            'komposisi' => $this->karisidenanDetailBucket(
+                'Komposisi Realisasi per Wilayah',
+                'Setiap kartu menampilkan komposisi realisasi PAD berdasarkan jenis akun pada satu wilayah.'
+            ),
+            'kontribusi' => $this->karisidenanDetailBucket(
+                'Kontribusi Jenis PAD per Wilayah',
+                'Setiap kartu menampilkan nilai realisasi tiap jenis PAD pada wilayah dalam karisidenan aktif.'
+            ),
+            'pertumbuhan' => $this->karisidenanDetailBucket(
+                'Pertumbuhan YoY per Wilayah',
+                'Setiap kartu menampilkan pertumbuhan tahun-ke-tahun untuk wilayah dalam karisidenan aktif.'
+            ),
         ];
 
         foreach ($wilayahList as $wilayah) {
@@ -1162,7 +1187,7 @@ class PetaDashboardService
             $kontribusi = $this->queryKontribusi($wilayahFilters, 'kabupaten');
             $pertumbuhan = $this->buildPertumbuhanSeries($trendTahunan);
 
-            $details['perbandingan_akun'][] = [
+            $details['perbandingan_akun']['items'][] = [
                 'label' => $wilayah,
                 'type' => 'bar',
                 'labels' => $perJenis->pluck('label')->all(),
@@ -1172,7 +1197,7 @@ class PetaDashboardService
                 ],
             ];
 
-            $details['tren_tahunan'][] = [
+            $details['tren_tahunan']['items'][] = [
                 'label' => $wilayah,
                 'type' => 'line',
                 'labels' => $trendTahunan->pluck('tahun')->all(),
@@ -1182,7 +1207,7 @@ class PetaDashboardService
                 ],
             ];
 
-            $details['peringkat'][] = [
+            $details['peringkat']['items'][] = [
                 'label' => $wilayah,
                 'type' => 'bar',
                 'labels' => $ranking->pluck('label')->all(),
@@ -1194,7 +1219,7 @@ class PetaDashboardService
                 ],
             ];
 
-            $details['komposisi'][] = [
+            $details['komposisi']['items'][] = [
                 'label' => $wilayah,
                 'type' => 'doughnut',
                 'labels' => $perJenis->pluck('label')->all(),
@@ -1203,7 +1228,7 @@ class PetaDashboardService
                 ],
             ];
 
-            $details['kontribusi'][] = [
+            $details['kontribusi']['items'][] = [
                 'label' => $wilayah,
                 'type' => 'bar',
                 'labels' => $kontribusi->pluck('label')->all(),
@@ -1212,7 +1237,7 @@ class PetaDashboardService
                 ],
             ];
 
-            $details['pertumbuhan'][] = [
+            $details['pertumbuhan']['items'][] = [
                 'label' => $wilayah,
                 'type' => 'line',
                 'labels' => $pertumbuhan->pluck('tahun')->all(),
@@ -1228,6 +1253,15 @@ class PetaDashboardService
     protected function shortAkunLabel($akun)
     {
         return str_replace('Pendapatan Asli Daerah - ', '', $akun);
+    }
+
+    protected function karisidenanDetailBucket($title, $description)
+    {
+        return [
+            'title' => $title,
+            'description' => $description,
+            'items' => [],
+        ];
     }
 
     protected function akunGroupingExpression($column)

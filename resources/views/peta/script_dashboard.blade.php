@@ -629,7 +629,8 @@
 
         app.openKarisidenanChartDetail = function(section) {
             const detailMap = (this.state.dashboard || {}).karisidenan_detail || {};
-            const detail = detailMap[section] || [];
+            const detailConfig = detailMap[section] || {};
+            const detail = detailConfig.items || [];
             const sourceChart = ((this.state.dashboard || {}).charts || []).find(function(item) {
                 return item.key === section;
             }) || {};
@@ -637,14 +638,14 @@
             const appInstance = this;
 
             target.html('');
-            $('#karisidenan_detail_title').text((sourceChart.title || 'Detail Chart') + ' per Wilayah');
-            $('#karisidenan_detail_description').text('Mode fokus untuk seluruh wilayah dalam karisidenan aktif.');
+            $('#karisidenan_detail_title').text(detailConfig.title || ((sourceChart.title || 'Detail Chart') + ' per Wilayah'));
+            $('#karisidenan_detail_description').text(detailConfig.description || 'Mode fokus untuk seluruh wilayah dalam karisidenan aktif.');
 
             detail.forEach(function(item, index) {
                 const canvasId = 'karisidenan_detail_' + section + '_' + index;
                 target.append(
                     '<article class="chart-card">' +
-                    '<div class="chart-card-head"><div><h3>' + appInstance.escapeHtml(item.label || 'Wilayah') + '</h3><p>' + appInstance.escapeHtml(sourceChart.description || 'Detail wilayah dalam karisidenan aktif.') + '</p></div></div>' +
+                    '<div class="chart-card-head"><div><h3>' + appInstance.escapeHtml(item.label || 'Wilayah') + '</h3><p>' + appInstance.escapeHtml(item.description || detailConfig.description || sourceChart.description || 'Detail wilayah dalam karisidenan aktif.') + '</p></div></div>' +
                     '<div class="chart-canvas"><canvas id="' + canvasId + '"></canvas></div>' +
                     '</article>'
                 );

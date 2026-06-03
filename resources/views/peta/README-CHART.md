@@ -141,15 +141,14 @@ LPAD(CAST(tabel_pad.kota AS TEXT), 2, '0')
 - rumus:
   - `SUM(realisasi) / jumlah_penduduk`
 
-`PAD per 1.000 Penduduk`
+`Realisasi PAD Tertinggi`
 
 - hanya dipakai saat level provinsi
 - sumber:
   - nilai PAD dari `tabel_pad`
   - nama wilayah dari `peta`
-  - penduduk dari `tb_penduduk`
 - rumus:
-  - `(SUM(realisasi) / jumlah_penduduk) * 1000`
+  - `SUM(realisasi)`
 
 `Komposisi Realisasi`
 
