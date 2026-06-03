@@ -24,6 +24,9 @@
                 </span>
             </a>
             <div class="topbar-actions">
+                <a href="{{ route('pad.import.index') }}" class="btn btn-sm btn-light border me-3">
+                    <i class="bi bi-file-earmark-arrow-up"></i> Import PAD
+                </a>
                 <div class="brand-pulse brand-pulse-title">
                     <strong>Dashboard Peta Pendapatan Daerah</strong>
                     <small>Peta interaktif Pendapatan Daerah Untuk Monitoring Anggaran</small>

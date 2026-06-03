@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PadImportController;
 use App\Http\Controllers\PajakDaerahController;
 use App\Http\Controllers\PetaController;
 use Illuminate\Support\Facades\Route;
@@ -25,3 +26,6 @@ Route::get('/peta', [PetaController::class, 'index'])->name('peta.index');
 Route::get('/peta/data', [PetaController::class, 'ambil_data_peta'])->name('peta.data');
 Route::get('/peta/dashboard', [PetaController::class, 'ambil_data_dashboard'])->name('peta.dashboard');
 Route::get('/peta/export', [PetaController::class, 'export_dashboard'])->name('peta.export');
+
+Route::get('/import-pad', [PadImportController::class, 'index'])->name('pad.import.index');
+Route::post('/import-pad', [PadImportController::class, 'store'])->name('pad.import.store');
