@@ -170,6 +170,7 @@
         }
 
         @media (max-width: 992px) {
+
             .upload-hero-grid,
             .upload-file-grid {
                 grid-template-columns: 1fr;
@@ -236,7 +237,9 @@
                     <div class="small mt-2">Tahun terimport: {{ implode(', ', session('import_summary')['tahun']) }}</div>
                     <div class="small mt-1">
                         @foreach (session('import_summary')['files'] as $fileSummary)
-                            <div>Upload {{ $fileSummary['slot'] }}: {{ $fileSummary['filename'] }} ({{ $fileSummary['tahun'] }}) - {{ $fileSummary['inserted'] }} baris</div>
+                            <div>Upload {{ $fileSummary['slot'] }}: {{ $fileSummary['filename'] }}
+                                ({{ $fileSummary['tahun'] }})
+                                - {{ $fileSummary['inserted'] }} baris</div>
                         @endforeach
                     </div>
                 @endif
@@ -279,78 +282,99 @@
 
             <div class="card border-0 bg-transparent">
                 <div class="card-body p-0">
-                <form action="{{ route('pad.import.store') }}" method="POST" enctype="multipart/form-data">
-                    @csrf
+                    <form action="{{ route('pad.import.store') }}" method="POST" enctype="multipart/form-data">
+                        @csrf
 
-                    <div class="mb-3">
-                        <label for="kota" class="form-label">Kota/Kabupaten</label>
-                        <select name="kota" id="kota" class="form-select" required>
-                            <option value="">Pilih kota/kabupaten</option>
-                            @foreach ($kotaOptions as $kota)
-                                @php
-                                    $kotaLabel = trim((string) $kota->kabupaten);
-                                    $kotaLabel = preg_replace('/^\s*\(?\s*ogc_fid\s*\)?\s*=>\s*/i', '', $kotaLabel);
-                                    $isSelected = (string) old('kota') === (string) $kota->ogc_fid;
+                        <div class="mb-3">
+                            <label for="kota" class="form-label">Kota/Kabupaten</label>
+                            <select name="kota" id="kota" class="form-select" required>
+                                <option value="">Pilih kota/kabupaten</option>
+                                @foreach ($kotaOptions as $kota)
+                                    @php
+                                        $kotaLabel = trim((string) $kota->kabupaten);
+                                        $kotaLabel = preg_replace('/^\s*\(?\s*ogc_fid\s*\)?\s*=>\s*/i', '', $kotaLabel);
+                                        $isSelected = (string) old('kota') === (string) $kota->ogc_fid;
 
-                                    if (strpos($kotaLabel, '=>') !== false) {
-                                        $parts = explode('=>', $kotaLabel);
-                                        $kotaLabel = trim(end($parts));
-                                    }
-                                @endphp
-                                <option value="{{ $kota->ogc_fid }}" {{ $isSelected ? 'selected' : '' }}>
-                                    {{ $kotaLabel }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <div class="form-text">Kolom kota di file dianggap kosong, jadi nilainya diambil dari pilihan ini saat import.</div>
-                    </div>
-
-                    <div class="upload-file-grid">
-                        @for ($i = 0; $i < 5; $i++)
-                            <div class="upload-file-card {{ $i === 4 ? 'is-wide' : '' }}">
-                                <div class="upload-file-year"><i class="bi bi-calendar3"></i> Tahun {{ $tahunOptions[$i] }}</div>
-                            <div>
-                                <label for="uploads_{{ $i }}_file" class="form-label">File Excel {{ $tahunOptions[$i] }}</label>
-                                <input type="file" name="uploads[{{ $i }}][file]" id="uploads_{{ $i }}_file" class="form-control" accept=".xlsx,.xls,.csv" required>
-                                <div class="form-text">Gunakan file Excel 97-2003 (`.xls`) atau format Excel lain yang didukung.</div>
-                            </div>
-                            </div>
-                        @endfor
-                    </div>
-
-                    <div class="mb-4 form-text">
-                        Header kolom dibaca tanpa membedakan huruf besar dan kecil. Kolom yang dicari saat ini:
-                        <code>akun</code>, <code>anggaran</code>, dan <code>realisasi</code>. Tahun dikunci otomatis ke
-                        <code>2021</code>, <code>2022</code>, <code>2023</code>, <code>2024</code>, dan <code>2025</code>
-                        sesuai urutan upload, bukan dari isi Excel. Nilai <code>anggaran</code> dan <code>realisasi</code>
-                        akan dinormalisasi otomatis termasuk jika masih berbentuk scientific notation seperti
-                        <code>3,26397E+12</code>. Format Excel 97-2003 <code>.xls</code> juga didukung. Nilai <code>persentase</code> selalu dihitung otomatis dari
-                        <code>realisasi / anggaran * 100</code>.
-                    </div>
-
-                    <div class="rounded border bg-light p-3 mb-4">
-                        <strong class="d-block mb-2">Jaminan import</strong>
-                        <div class="text-muted small">
-                            Kelima file diproses dalam satu transaksi database. Kalau ada satu file, satu baris, atau satu kolom
-                            yang salah, seluruh proses dibatalkan dan tidak ada data yang disimpan sebagian.
+                                        if (strpos($kotaLabel, '=>') !== false) {
+                                            $parts = explode('=>', $kotaLabel);
+                                            $kotaLabel = trim(end($parts));
+                                        }
+                                    @endphp
+                                    <option value="{{ $kota->ogc_fid }}" {{ $isSelected ? 'selected' : '' }}>
+                                        {{ $kotaLabel }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Kolom kota di file dianggap kosong, jadi nilainya diambil dari pilihan
+                                ini saat import.</div>
                         </div>
-                    </div>
 
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-upload"></i> Import PAD
-                    </button>
-                </form>
-            </div>
+                        <div class="upload-file-grid">
+                            @for ($i = 0; $i < 5; $i++)
+                                <div class="upload-file-card {{ $i === 4 ? 'is-wide' : '' }}">
+                                    <div class="upload-file-year"><i class="bi bi-calendar3"></i> Tahun
+                                        {{ $tahunOptions[$i] }}</div>
+                                    <div>
+                                        <label for="uploads_{{ $i }}_file" class="form-label">File Excel
+                                            {{ $tahunOptions[$i] }}</label>
+                                        <input type="file" name="uploads[{{ $i }}][file]"
+                                            id="uploads_{{ $i }}_file" class="form-control"
+                                            accept=".xlsx,.xls,.csv" required>
+                                        <div class="form-text">Gunakan file Excel 97-2003 (`.xls`) atau format Excel lain
+                                            yang didukung.</div>
+                                    </div>
+                                </div>
+                            @endfor
+                        </div>
+
+                        <div class="mb-4 form-text">
+                            Header kolom dibaca tanpa membedakan huruf besar dan kecil. Kolom yang dicari saat ini:
+                            <code>akun</code>, <code>anggaran</code>, dan <code>realisasi</code>. Tahun dikunci otomatis ke
+                            <code>2021</code>, <code>2022</code>, <code>2023</code>, <code>2024</code>, dan
+                            <code>2025</code>
+                            sesuai urutan upload, bukan dari isi Excel. Nilai <code>anggaran</code> dan
+                            <code>realisasi</code>
+                            akan dinormalisasi otomatis termasuk jika masih berbentuk scientific notation seperti
+                            <code>3,26397E+12</code>. Format Excel 97-2003 <code>.xls</code> juga didukung. Nilai
+                            <code>persentase</code> selalu dihitung otomatis dari
+                            <code>realisasi / anggaran * 100</code>.
+                        </div>
+
+                        <div class="rounded border bg-light p-3 mb-4">
+                            <strong class="d-block mb-2">Jaminan import</strong>
+                            <div class="text-muted small">
+                                Kelima file diproses dalam satu transaksi database. Kalau ada satu file, satu baris, atau
+                                satu kolom
+                                yang salah, seluruh proses dibatalkan dan tidak ada data yang disimpan sebagian.
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="import_password" class="form-label">Password Import</label>
+                            <input type="password" name="import_password" id="import_password" class="form-control"
+                                required>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload"></i> Import PAD
+                        </button>
+                    </form>
+                </div>
             </div>
         </section>
 
         <section class="upload-guide-card">
             <h3>Detail format data download dan upload</h3>
             <div class="upload-guide-list">
-                <div>File upload dibaca berdasarkan kolom <code>akun</code>, <code>anggaran</code>, dan <code>realisasi</code>.</div>
-                <div>Urutan file mewakili tahun <code>2021</code>, <code>2022</code>, <code>2023</code>, <code>2024</code>, dan <code>2025</code>.</div>
-                <div>Nilai scientific notation seperti <code>3,26397E+12</code> akan dinormalisasi otomatis saat import.</div>
-                <div>Jika satu file atau satu baris gagal diproses, seluruh batch dibatalkan agar data tidak tersimpan setengah.</div>
+                <div>File upload dibaca berdasarkan kolom <code>akun</code>, <code>anggaran</code>, dan
+                    <code>realisasi</code>.
+                </div>
+                <div>Urutan file mewakili tahun <code>2021</code>, <code>2022</code>, <code>2023</code>, <code>2024</code>,
+                    dan <code>2025</code>.</div>
+                <div>Nilai scientific notation seperti <code>3,26397E+12</code> akan dinormalisasi otomatis saat import.
+                </div>
+                <div>Jika satu file atau satu baris gagal diproses, seluruh batch dibatalkan agar data tidak tersimpan
+                    setengah.</div>
             </div>
         </section>
     </div>
