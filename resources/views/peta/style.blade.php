@@ -124,6 +124,29 @@
         gap: 0.4rem;
     }
 
+    .topbar-menu-toggle {
+        display: none;
+        width: 48px;
+        height: 48px;
+        border: 0;
+        border-radius: 16px;
+        background: rgba(23, 58, 100, 0.08);
+        color: #173a64;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 0.28rem;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    }
+
+    .topbar-menu-toggle span {
+        width: 20px;
+        height: 2px;
+        border-radius: 999px;
+        background: currentColor;
+        transition: transform 0.24s ease, opacity 0.24s ease;
+    }
+
     .topbar-link {
         display: inline-flex;
         align-items: center;
@@ -1126,7 +1149,21 @@
 
     .table-responsive {
         border-radius: 18px;
-        overflow: hidden;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border: 1px solid rgba(23, 58, 100, 0.08);
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);
+    }
+
+    .table-responsive.is-scrollable::after {
+        content: "Geser kiri/kanan untuk melihat semua kolom";
+        display: block;
+        padding: 0.45rem 0.9rem 0.7rem;
+        color: #617287;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
     }
 
     .table-dashboard thead th {
@@ -1135,10 +1172,20 @@
         letter-spacing: 0.04em;
         color: var(--muted);
         border-bottom-width: 1px;
+        white-space: nowrap;
+        background: rgba(247, 250, 252, 0.96);
     }
 
     .table-dashboard tbody td {
         vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .table-dashboard .table-number-col {
+        min-width: 72px;
+        text-align: center;
+        font-weight: 800;
+        color: #173a64;
     }
 
     .table-pagination-shell {
@@ -1569,7 +1616,7 @@
     }
 
     .page-footer {
-        margin: 1.5rem -0.85rem 0;
+        margin: 1.5rem 0 0;
         padding: 1.25rem 1.35rem 1rem;
         border-radius: 0;
         background:
@@ -1752,6 +1799,11 @@
             justify-content: flex-start;
         }
 
+        .topbar-menu-toggle {
+            display: inline-flex;
+            margin-left: auto;
+        }
+
         .page-shell {
             padding: 0 0.45rem 1rem;
         }
@@ -1767,11 +1819,30 @@
         .topbar-surface {
             padding: 0.95rem 1rem;
             border-radius: 28px;
+            position: relative;
         }
 
         .topbar-link {
             padding: 0.62rem 0.82rem;
             font-size: 0.84rem;
+        }
+
+        .topbar-actions {
+            display: none;
+            gap: 0.55rem;
+            flex-direction: column;
+            align-items: stretch;
+            padding-top: 0.2rem;
+        }
+
+        .topbar-actions.is-open {
+            display: flex;
+        }
+
+        .topbar-link {
+            width: 100%;
+            justify-content: flex-start;
+            background: rgba(255, 255, 255, 0.72);
         }
 
         .hero-carousel-shell {
@@ -1889,7 +1960,7 @@
         }
 
         .page-footer {
-            margin: 1.5rem -0.45rem 0;
+            margin: 1.5rem 0 0;
         }
 
         .section-banner {

@@ -440,28 +440,46 @@ class PetaDashboardService
         $filterWilayah = $filters['wilayah'] ?: 'Semua Pemda (Jawa Timur)';
         $filterJenis = $filters['jenis'] ?: 'Semua Jenis';
         $filterTahun = $filters['tahun'] ?: 'Semua Tahun';
+        $filterKarisidenan = $filters['karisidenan'] ?: 'Semua Karisidenan';
+        $filterKecamatan = $filters['kecamatan'] ?: 'Semua Kecamatan';
+        $scopeLabel = $dashboard['scope']['label'] ?? 'Jawa Timur';
+        $summary = $dashboard['summary'] ?? [];
+        $generatedAt = now()->format('d-m-Y H:i:s');
 
         $html = '<html><head><meta charset="UTF-8"></head><body>';
         $html .= '<table border="1">';
         $html .= '<tr><th colspan="2">Dashboard PAD Jawa Timur</th></tr>';
-        $html .= '<tr><td>Lingkup</td><td>' . e($dashboard['scope']['label']) . '</td></tr>';
+        $html .= '<tr><td>Judul Data</td><td>' . e($export['title']) . '</td></tr>';
+        $html .= '<tr><td>Lingkup Aktif</td><td>' . e($scopeLabel) . '</td></tr>';
         $html .= '<tr><td>Tahun</td><td>' . e((string) $filterTahun) . '</td></tr>';
         $html .= '<tr><td>Jenis Akun</td><td>' . e($filterJenis) . '</td></tr>';
+        $html .= '<tr><td>Karisidenan</td><td>' . e($filterKarisidenan) . '</td></tr>';
         $html .= '<tr><td>Wilayah</td><td>' . e($filterWilayah) . '</td></tr>';
+        $html .= '<tr><td>Kecamatan</td><td>' . e($filterKecamatan) . '</td></tr>';
+        $html .= '<tr><td>Waktu Download</td><td>' . e($generatedAt) . '</td></tr>';
+        $html .= '<tr><td>Total Baris</td><td>' . e((string) count($rows)) . '</td></tr>';
         $html .= '<tr><td colspan="2"></td></tr>';
-        $html .= '<tr><th colspan="' . max(1, count($headers)) . '">' . e($export['title']) . '</th></tr>';
+        $html .= '<tr><th colspan="2">Ringkasan Angka</th></tr>';
+        $html .= '<tr><td>Total Anggaran</td><td>' . e($this->formatExcelCellValue('anggaran', $summary['total_anggaran'] ?? 0)) . '</td></tr>';
+        $html .= '<tr><td>Total Realisasi</td><td>' . e($this->formatExcelCellValue('realisasi', $summary['total_realisasi'] ?? 0)) . '</td></tr>';
+        $html .= '<tr><td>Selisih</td><td>' . e($this->formatExcelCellValue('selisih', $summary['selisih'] ?? 0)) . '</td></tr>';
+        $html .= '<tr><td>Persentase Capaian</td><td>' . e($this->formatExcelCellValue('persentase', $summary['persentase'] ?? 0)) . '</td></tr>';
+        $html .= '<tr><td colspan="2"></td></tr>';
+        $html .= '<tr><th colspan="' . max(1, count($headers) + 1) . '">' . e($export['title']) . '</th></tr>';
 
         if (!empty($headers)) {
             $html .= '<tr>';
+            $html .= '<th>No</th>';
             foreach ($headers as $header) {
                 $html .= '<th>' . e($header) . '</th>';
             }
             $html .= '</tr>';
 
-            foreach ($rows as $row) {
+            foreach ($rows as $index => $row) {
                 $html .= '<tr>';
+                $html .= '<td>' . e((string) ($index + 1)) . '</td>';
                 foreach ($headers as $header) {
-                    $html .= '<td>' . e((string) $row[$header]) . '</td>';
+                    $html .= '<td>' . e($this->formatExcelCellValue($header, $row[$header] ?? null)) . '</td>';
                 }
                 $html .= '</tr>';
             }
@@ -483,6 +501,31 @@ class PetaDashboardService
         $safeSection = preg_replace('/[^a-z0-9]+/i', '-', strtolower($section));
 
         return 'dashboard-pad-' . $safeSection . '-' . $safeWilayah . '-' . $tahun . '.xls';
+    }
+
+    protected function formatExcelCellValue($header, $value)
+    {
+        if ($value === null || $value === '') {
+            return '-';
+        }
+
+        if (preg_match('/persentase|kontribusi|growth/i', $header)) {
+            return number_format((float) $value, 2, ',', '.') . '%';
+        }
+
+        if (preg_match('/penduduk/i', $header)) {
+            return number_format((float) $value, 0, ',', '.');
+        }
+
+        if (preg_match('/pad per|anggaran|realisasi|selisih/i', $header)) {
+            return 'Rp ' . number_format((float) $value, 0, ',', '.');
+        }
+
+        if (is_numeric($value)) {
+            return number_format((float) $value, 0, ',', '.');
+        }
+
+        return (string) $value;
     }
 
     protected function buildScope(array $filters)

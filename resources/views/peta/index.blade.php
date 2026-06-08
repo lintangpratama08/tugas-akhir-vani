@@ -80,29 +80,6 @@
         <div id="peta_dashboard_section"></div>
         @include('peta.dashboard')
 
-        <footer class="page-footer" id="page_footer">
-            <div class="page-footer-main">
-                <div class="page-footer-brand">
-                    <span class="page-footer-kicker">Dashboard PAD Jawa Timur</span>
-                    <h3>BAPPEDA JAWA TIMUR</h3>
-                    <p>Portal visual untuk monitoring Pendapatan Asli Daerah, evaluasi anggaran PAD, dan pembacaan capaian
-                        wilayah kabupaten/kota di Jawa Timur.</p>
-                    <div class="page-footer-tags">
-                        <span><i class="bi bi-shield-check"></i> Informasi terkurasi</span>
-                        <span><i class="bi bi-lightning-charge"></i> Insight cepat</span>
-                    </div>
-                </div>
-                <div class="page-footer-meta">
-                    <span><i class="bi bi-geo-alt"></i> Jl. Pahlawan 102-108, Surabaya</span>
-                    <span><i class="bi bi-bar-chart-line"></i> Monitoring PAD Terintegrasi</span>
-                    <span><i class="bi bi-map"></i> Peta dan dashboard dalam satu layar</span>
-                </div>
-            </div>
-            <div class="page-footer-bottom">
-                <span>&copy; {{ date('Y') }} Vani Febianti</span>
-                <span>Dashboard Peta Pendapatan Asli Daerah</span>
-            </div>
-        </footer>
     </div>
 @endsection
 

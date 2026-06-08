@@ -260,6 +260,7 @@
             const table = $('#' + tableId);
             const thead = table.find('thead');
             const tbody = table.find('tbody');
+            const wrapper = table.closest('.table-responsive');
             const state = this.tableStates[tableId] || {
                 rows: [],
                 currentPage: 1,
@@ -272,6 +273,7 @@
                 thead.html('');
                 tbody.html('<tr><td colspan="10" class="text-center text-muted">Tidak ada data.</td></tr>');
                 paginationHost.html('');
+                wrapper.removeClass('is-scrollable');
                 return;
             }
 
@@ -280,21 +282,25 @@
             const currentPage = Math.min(state.currentPage, totalPages);
             const startIndex = (currentPage - 1) * state.pageSize;
             const pageRows = rows.slice(startIndex, startIndex + state.pageSize);
+            const numberedHeaders = ['No'].concat(headers);
 
             state.currentPage = currentPage;
             this.tableStates[tableId] = state;
 
-            thead.html('<tr>' + headers.map(function(header) {
-                return '<th>' + app.escapeHtml(header) + '</th>';
+            thead.html('<tr>' + numberedHeaders.map(function(header, index) {
+                const numberClass = index === 0 ? ' class="table-number-col"' : '';
+                return '<th' + numberClass + '>' + app.escapeHtml(header) + '</th>';
             }).join('') + '</tr>');
 
-            tbody.html(pageRows.map(function(row) {
-                return '<tr>' + headers.map(function(header) {
+            tbody.html(pageRows.map(function(row, rowIndex) {
+                const rowNumber = startIndex + rowIndex + 1;
+                return '<tr><td class="table-number-col">' + rowNumber + '</td>' + headers.map(function(header) {
                     const value = row[header];
                     return '<td>' + app.escapeHtml(app.formatCellValue(header, value)) + '</td>';
                 }).join('') + '</tr>';
             }).join(''));
 
+            wrapper.toggleClass('is-scrollable', numberedHeaders.length > 5);
             paginationHost.html(this.buildPaginationHtml(tableId, rows.length, currentPage, state.pageSize));
         };
 
