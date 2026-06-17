@@ -191,10 +191,21 @@
     <div class="dashboard-drawer-body">
         <div class="drawer-summary-grid" id="drawer_summary_grid"></div>
         <div class="drawer-actions">
+            <button type="button" class="hero-button" id="drawer_ai_button" data-drawer-section="ringkasan">
+                <i class="bi bi-stars"></i>
+                Generate Penjelasan AI
+            </button>
             <button type="button" class="hero-button hero-button-light export-trigger" id="drawer_export_button" data-export-section="ringkasan">
                 <i class="bi bi-download"></i>
                 Download Data Mentah
             </button>
+        </div>
+        <div id="drawer_ai_insight" class="drawer-ai-insight" hidden>
+            <div class="drawer-ai-insight-head">
+                <span class="section-badge drawer-badge">Insight AI</span>
+                <strong>Penjelasan Detail</strong>
+            </div>
+            <div id="drawer_ai_insight_body" class="drawer-ai-insight-body"></div>
         </div>
         <div class="table-responsive drawer-table-wrap">
             <table class="table table-dashboard" id="drawer_table">
@@ -204,3 +215,34 @@
         </div>
     </div>
 </aside>
+
+<div class="modal fade" id="dashboardExportModal" tabindex="-1" aria-labelledby="dashboardExportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content dashboard-export-modal">
+            <div class="modal-header dashboard-export-modal-head">
+                <div>
+                    <span class="section-badge drawer-badge">Pilihan Unduhan</span>
+                    <h5 class="modal-title" id="dashboardExportModalLabel">Download Dashboard</h5>
+                    <p id="dashboard_export_modal_desc">Pilih format unduhan untuk bagian dashboard yang sedang aktif.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body dashboard-export-modal-body">
+                <button type="button" class="dashboard-export-option" id="dashboard_export_excel">
+                    <span class="dashboard-export-option-icon"><i class="bi bi-file-earmark-excel"></i></span>
+                    <span class="dashboard-export-option-copy">
+                        <strong>Download Excel</strong>
+                        <small>Unduh data mentah seperti format export lama.</small>
+                    </span>
+                </button>
+                <button type="button" class="dashboard-export-option" id="dashboard_export_pdf">
+                    <span class="dashboard-export-option-icon"><i class="bi bi-file-earmark-pdf"></i></span>
+                    <span class="dashboard-export-option-copy">
+                        <strong>Download PDF</strong>
+                        <small>Unduh screenshot chart/tabel beserta penjelasan otomatis dari AI.</small>
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

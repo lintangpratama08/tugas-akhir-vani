@@ -26,6 +26,7 @@ Route::get('/peta', [PetaController::class, 'index'])->name('peta.index');
 Route::get('/peta/data', [PetaController::class, 'ambil_data_peta'])->name('peta.data');
 Route::get('/peta/dashboard', [PetaController::class, 'ambil_data_dashboard'])->name('peta.dashboard');
 Route::get('/peta/export', [PetaController::class, 'export_dashboard'])->name('peta.export');
+Route::post('/peta/chart-insight', [PetaController::class, 'generate_chart_insight'])->name('peta.chart_insight');
 
 Route::get('/import-pad', [PadImportController::class, 'index'])->name('pad.import.index');
 Route::post('/import-pad/unlock', [PadImportController::class, 'unlock'])->name('pad.import.unlock');

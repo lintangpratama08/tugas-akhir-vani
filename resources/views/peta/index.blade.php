@@ -88,6 +88,7 @@
         window.petaDashboardConfig = {
             defaultTahun: @json($defaultTahun),
             exportUrl: @json(route('peta.export')),
+            chartInsightUrl: @json(route('peta.chart_insight')),
             dataUrl: @json(route('peta.data')),
             dashboardUrl: @json(route('peta.dashboard')),
             backendUnavailable: @json((bool) ($backendUnavailable ?? false)),

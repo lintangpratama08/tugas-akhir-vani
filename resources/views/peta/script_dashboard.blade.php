@@ -497,19 +497,433 @@
         app.bindExportEvents = function() {
             const appInstance = this;
 
-            $(document).on('click', '.export-trigger', function() {
+            $(document).off('click', '.export-trigger').on('click', '.export-trigger', function() {
                 const section = $(this).data('export-section');
-                const query = $.param({
-                    section: section,
-                    tahun: appInstance.state.tahun,
-                    jenis: appInstance.state.jenis,
-                    karisidenan: appInstance.state.karisidenan,
-                    wilayah: appInstance.state.wilayah,
-                    kecamatan: appInstance.state.kecamatan
+                appInstance.openExportModal(section, this);
+            });
+
+            $(document).off('click', '#dashboard_export_excel').on('click', '#dashboard_export_excel', function() {
+                if (!appInstance.exportContext) {
+                    return;
+                }
+
+                appInstance.performRawExport(appInstance.exportContext.section);
+                appInstance.closeExportModal();
+            });
+
+            $(document).off('click', '#dashboard_export_pdf').on('click', '#dashboard_export_pdf', async function() {
+                if (!appInstance.exportContext) {
+                    return;
+                }
+
+                const context = appInstance.exportContext;
+                appInstance.closeExportModal();
+                await appInstance.exportSectionPdf(context.section, context.button);
+            });
+        };
+
+        app.openExportModal = function(section, button) {
+            const modalElement = document.getElementById('dashboardExportModal');
+            const sectionMeta = this.resolveSectionMeta(section);
+
+            if (!modalElement || !window.bootstrap || !window.bootstrap.Modal) {
+                this.exportSectionPdf(section, button);
+                return;
+            }
+
+            this.exportContext = {
+                section: section,
+                button: button || null
+            };
+
+            $('#dashboardExportModalLabel').text('Download ' + (sectionMeta.title || 'Dashboard'));
+            $('#dashboard_export_modal_desc').text('Pilih Excel untuk data mentah atau PDF untuk visual rapi beserta penjelasan otomatis AI.');
+
+            if (!this.exportModalInstance) {
+                this.exportModalInstance = new window.bootstrap.Modal(modalElement);
+            }
+
+            this.exportModalInstance.show();
+        };
+
+        app.closeExportModal = function() {
+            if (this.exportModalInstance) {
+                this.exportModalInstance.hide();
+            }
+        };
+
+        app.performRawExport = function(section) {
+            const query = $.param({
+                section: section,
+                tahun: this.state.tahun,
+                jenis: this.state.jenis,
+                karisidenan: this.state.karisidenan,
+                wilayah: this.state.wilayah,
+                kecamatan: this.state.kecamatan
+            });
+
+            window.open(window.petaDashboardConfig.exportUrl + '?' + query, '_blank');
+        };
+
+        app.exportSectionPdf = async function(section, button) {
+            const target = this.resolveExportVisualElement(section);
+
+            if (!target || !window.html2canvas || !window.jspdf || !window.jspdf.jsPDF) {
+                return;
+            }
+
+            const originalHtml = button ? button.innerHTML : '';
+
+            this.setExportButtonLoading(button, true);
+
+            try {
+                const insightPayload = this.resolveInsightPayload(section);
+                const insightResponse = await this.requestSectionInsight(section, insightPayload);
+                const canvas = await window.html2canvas(target, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
                 });
 
-                window.open(window.petaDashboardConfig.exportUrl + '?' + query, '_blank');
+                await this.downloadPdfDocument(section, insightPayload, insightResponse.insight, canvas);
+            } catch (error) {
+                console.error('PDF export gagal:', error);
+                alert('PDF gagal dibuat. Silakan coba lagi.');
+            } finally {
+                this.setExportButtonLoading(button, false, originalHtml);
+            }
+        };
+
+        app.setExportButtonLoading = function(button, isLoading, originalHtml) {
+            if (!button) {
+                return;
+            }
+
+            if (isLoading) {
+                button.dataset.originalHtml = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+                return;
+            }
+
+            button.disabled = false;
+            button.innerHTML = originalHtml || button.dataset.originalHtml || button.innerHTML;
+        };
+
+        app.resolveExportVisualElement = function(section) {
+            if (section === 'ringkasan') {
+                return document.querySelector('.summary-grid');
+            }
+
+            const chartCard = document.querySelector('.chart-card[data-drawer-section="' + section + '"]');
+
+            if (chartCard) {
+                return chartCard;
+            }
+
+            const detailCard = document.querySelector('.detail-card[data-drawer-section="' + section + '"]');
+
+            if (detailCard) {
+                return detailCard;
+            }
+
+            return null;
+        };
+
+        app.resolveSectionMeta = function(section) {
+            const dashboard = this.state.dashboard || {};
+            const charts = dashboard.charts || [];
+            const tables = dashboard.tables || {};
+            const chart = charts.find(function(item) {
+                return item.key === section;
             });
+
+            if (section === 'ringkasan') {
+                return {
+                    title: 'Ringkasan Dashboard PAD'
+                };
+            }
+
+            if (chart) {
+                return {
+                    title: chart.title || 'Chart Dashboard'
+                };
+            }
+
+            if (tables[section]) {
+                return {
+                    title: tables[section].title || 'Tabel Dashboard'
+                };
+            }
+
+            return {
+                title: 'Dashboard PAD'
+            };
+        };
+
+        app.resolveInsightPayload = function(section) {
+            const dashboard = this.state.dashboard || {};
+            const scope = dashboard.scope || {};
+            const charts = dashboard.charts || [];
+            const tables = dashboard.tables || {};
+            const chart = charts.find(function(item) {
+                return item.key === section;
+            });
+            const table = tables[section] || null;
+
+            if (chart) {
+                return {
+                    section: section,
+                    title: chart.title || 'Chart Dashboard',
+                    description: chart.description || '',
+                    scope_label: scope.label || 'Jawa Timur',
+                    filters: this.buildInsightFilters(),
+                    labels: chart.labels || [],
+                    datasets: chart.datasets || [],
+                    rows: (chart.export && chart.export.rows) ? chart.export.rows : []
+                };
+            }
+
+            if (table) {
+                return {
+                    section: section,
+                    title: table.title || 'Tabel Dashboard',
+                    description: 'Ringkasan data tabel sesuai filter aktif.',
+                    scope_label: scope.label || 'Jawa Timur',
+                    filters: this.buildInsightFilters(),
+                    labels: [],
+                    datasets: [],
+                    rows: table.rows || []
+                };
+            }
+
+            return {
+                section: section,
+                title: 'Dashboard PAD',
+                description: 'Visual dashboard sesuai filter aktif.',
+                scope_label: scope.label || 'Jawa Timur',
+                filters: this.buildInsightFilters(),
+                labels: [],
+                datasets: [],
+                rows: []
+            };
+        };
+
+        app.buildInsightFilters = function() {
+            return {
+                tahun: this.state.tahun || 'Semua Tahun',
+                jenis: this.state.jenis || 'Semua Jenis',
+                karisidenan: this.resolveKarisidenanLabel ? (this.resolveKarisidenanLabel() || 'Semua Karisidenan') : 'Semua Karisidenan',
+                wilayah: this.state.wilayah || 'Semua Wilayah',
+                kecamatan: this.state.kecamatan || 'Semua Kecamatan'
+            };
+        };
+
+        app.requestSectionInsight = async function(section, payload) {
+            try {
+                const response = await $.ajax({
+                    url: window.petaDashboardConfig.chartInsightUrl,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    data: JSON.stringify(payload)
+                });
+
+                if (response && response.insight) {
+                    return response;
+                }
+            } catch (error) {
+                console.warn('Insight AI fallback dipakai untuk section:', section, error);
+            }
+
+            return {
+                insight: this.buildLocalInsight(payload),
+                source: 'fallback',
+                used_fallback: true,
+                error_message: 'Request AJAX ke endpoint insight gagal atau tidak merespons.'
+            };
+        };
+
+        app.buildLocalInsight = function(payload) {
+            const title = payload.title || 'Visual dashboard';
+            const scopeLabel = payload.scope_label || 'wilayah aktif';
+            const rows = payload.rows || [];
+            const datasets = payload.datasets || [];
+            const labels = payload.labels || [];
+
+            if (rows.length) {
+                return title + ' pada ' + scopeLabel + ' memuat ' + rows.length +
+                    ' baris data utama yang dapat dipakai untuk membaca distribusi capaian dan membandingkan prioritas tindak lanjut antar kategori atau wilayah. Dokumen ini memakai ringkasan lokal karena layanan AI eksternal sedang tidak merespons.';
+            }
+
+            if (datasets.length) {
+                const summary = datasets.map(function(dataset) {
+                    const values = (dataset.data || []).map(function(value) {
+                        return parseFloat(value || 0);
+                    });
+
+                    if (!values.length) {
+                        return '';
+                    }
+
+                    const maxValue = Math.max.apply(null, values);
+                    const minValue = Math.min.apply(null, values);
+                    const maxIndex = values.indexOf(maxValue);
+                    const minIndex = values.indexOf(minValue);
+                    const maxLabel = labels[maxIndex] || 'kategori tertinggi';
+                    const minLabel = labels[minIndex] || 'kategori terendah';
+
+                    return (dataset.label || 'Nilai') + ' tertinggi berada pada ' + maxLabel +
+                        ', sedangkan nilai terendah berada pada ' + minLabel + '.';
+                }).filter(Boolean).join(' ');
+
+                return title + ' pada ' + scopeLabel +
+                    ' memperlihatkan pola perbandingan antar kategori pada filter aktif. ' + summary +
+                    ' Ringkasan ini dibuat otomatis dari data dashboard saat layanan AI gratis belum tersedia.';
+            }
+
+            return title + ' pada ' + scopeLabel +
+                ' merangkum kondisi dashboard sesuai filter aktif. Ringkasan otomatis AI belum tersedia, sehingga sistem menggunakan penjelasan cadangan berbasis data yang sedang tampil.';
+        };
+
+        app.normalizeInsightText = function(text) {
+            let normalized = String(text || '');
+
+            normalized = normalized.replace(/\r\n/g, '\n');
+            normalized = normalized.replace(/\b(?:[A-Za-z]\s){3,}[A-Za-z]\b/g, function(match) {
+                return match.replace(/\s+/g, '');
+            });
+            normalized = normalized.replace(/[ \t]+/g, ' ');
+            normalized = normalized.replace(/\s+([,.;:!?])/g, '$1');
+            normalized = normalized.replace(/\n{3,}/g, '\n\n');
+
+            return normalized.trim();
+        };
+
+        app.formatInsightHtml = function(text) {
+            const normalized = this.normalizeInsightText(text || '');
+            const paragraphs = normalized.split(/\n{2,}/).filter(Boolean);
+
+            return paragraphs.map(function(paragraph) {
+                return '<p>' + app.escapeHtml(paragraph) + '</p>';
+            }).join('');
+        };
+
+        app.setDrawerInsightState = function(isVisible, html) {
+            const shell = $('#drawer_ai_insight');
+            const body = $('#drawer_ai_insight_body');
+
+            if (!isVisible) {
+                shell.prop('hidden', true);
+                body.html('');
+                return;
+            }
+
+            body.html(html || '');
+            shell.prop('hidden', false);
+        };
+
+        app.downloadPdfDocument = async function(section, payload, insight, canvas) {
+            const pdfLib = window.jspdf;
+            const jsPDF = pdfLib.jsPDF;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const margin = 16;
+            const contentWidth = pageWidth - (margin * 2);
+            const title = payload.title || 'Dashboard PAD';
+            const scopeLabel = payload.scope_label || 'Jawa Timur';
+            const filterLines = [
+                'Lingkup: ' + scopeLabel,
+                'Tahun: ' + (payload.filters.tahun || 'Semua Tahun'),
+                'Jenis: ' + (payload.filters.jenis || 'Semua Jenis'),
+                'Wilayah: ' + (payload.filters.wilayah || 'Semua Wilayah')
+            ];
+            const imageData = canvas.toDataURL('image/png');
+            const ratio = (canvas.width > 0 && canvas.height > 0) ? (canvas.height / canvas.width) : 1;
+            let imageWidth = contentWidth;
+            let imageHeight = imageWidth * ratio;
+            let cursorY = margin;
+            const safeInsight = this.normalizeInsightText(insight || this.buildLocalInsight(payload));
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(17);
+            const titleLines = pdf.splitTextToSize(title, contentWidth);
+            pdf.text(titleLines, margin, cursorY);
+            cursorY += (titleLines.length * 7) + 1;
+
+            pdf.setFont('times', 'normal');
+            pdf.setFontSize(10.5);
+            filterLines.forEach(function(line) {
+                pdf.text(line, margin, cursorY, {
+                    align: 'left'
+                });
+                cursorY += 5.1;
+            });
+            cursorY += 3;
+
+            const maxImageHeight = pageHeight - cursorY - 82;
+
+            if (imageHeight > maxImageHeight) {
+                imageHeight = maxImageHeight;
+                imageWidth = imageHeight / ratio;
+            }
+
+            const centeredImageX = margin + ((contentWidth - imageWidth) / 2);
+            pdf.addImage(imageData, 'PNG', centeredImageX, cursorY, imageWidth, imageHeight);
+            cursorY += imageHeight + 8;
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(12);
+            pdf.text('Penjelasan Otomatis', margin, cursorY);
+            cursorY += 6;
+
+            pdf.setFont('times', 'normal');
+            pdf.setFontSize(11);
+            const paragraphs = safeInsight.split(/\n{2,}/).filter(Boolean);
+            const paragraphGap = 2.5;
+            const insightLineHeight = 5.3;
+
+            paragraphs.forEach(function(paragraph, paragraphIndex) {
+                const paragraphLines = pdf.splitTextToSize(paragraph, contentWidth);
+
+                if ((cursorY + (paragraphLines.length * insightLineHeight)) > (pageHeight - margin)) {
+                    pdf.addPage();
+                    cursorY = margin;
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.setFontSize(12);
+                    pdf.text('Penjelasan Otomatis', margin, cursorY);
+                    cursorY += 6;
+                    pdf.setFont('times', 'normal');
+                    pdf.setFontSize(11);
+                }
+
+                paragraphLines.forEach(function(line) {
+                    pdf.text(line, margin, cursorY, {
+                        align: 'left',
+                        maxWidth: contentWidth
+                    });
+                    cursorY += insightLineHeight;
+                });
+
+                if (paragraphIndex < (paragraphs.length - 1)) {
+                    cursorY += paragraphGap;
+                }
+            });
+
+            pdf.save(this.buildPdfFilename(section, title));
+        };
+
+        app.buildPdfFilename = function(section, title) {
+            const cleanTitle = String(title || section || 'dashboard')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+
+            return 'dashboard-pad-' + cleanTitle + '.pdf';
         };
 
         app.bindDrawerEvents = function() {
@@ -535,6 +949,11 @@
                 appInstance.closeKarisidenanTrendDetail();
             });
 
+            $(document).off('click', '#drawer_ai_button').on('click', '#drawer_ai_button', function() {
+                const section = $(this).data('drawer-section') || 'ringkasan';
+                appInstance.generateDrawerInsight(section, this);
+            });
+
             $(document).off('click', '.table-pagination-button').on('click', '.table-pagination-button', function() {
                 const tableId = $(this).data('table-id');
                 const page = parseInt($(this).data('page'), 10);
@@ -555,9 +974,12 @@
             $('#drawer_title').text(payload.title);
             $('#drawer_description').text(payload.description);
             $('#drawer_export_button').attr('data-export-section', payload.exportSection);
+            $('#drawer_ai_button').attr('data-drawer-section', payload.exportSection);
             $('#drawer_summary_grid').html(payload.summaryCards.map((card) => {
                 return '<div class="drawer-stat-card"><span>' + this.escapeHtml(card.label) + '</span><strong>' + this.escapeHtml(card.value) + '</strong></div>';
             }).join(''));
+            this.drawerContext = payload;
+            this.setDrawerInsightState(false);
 
             this.renderTable('drawer_table', payload.rows);
 
@@ -568,6 +990,8 @@
         app.closeDrawer = function() {
             $('#dashboard_drawer, #dashboard_drawer_backdrop').removeClass('is-open');
             $('#dashboard_drawer').attr('aria-hidden', 'true');
+            this.drawerContext = null;
+            this.setDrawerInsightState(false);
         };
 
         app.resolveDrawerPayload = function(section) {
@@ -631,6 +1055,45 @@
             }
 
             return payload;
+        };
+
+        app.resolveDrawerInsightPayload = function(section) {
+            const drawerPayload = this.drawerContext || this.resolveDrawerPayload(section);
+
+            return {
+                section: section,
+                title: drawerPayload.title || 'Detail Dashboard',
+                description: drawerPayload.description || 'Rincian analitik dan data pendukung.',
+                scope_label: (this.state.dashboard || {}).scope ? ((this.state.dashboard || {}).scope.label || 'Jawa Timur') : 'Jawa Timur',
+                filters: this.buildInsightFilters(),
+                labels: [],
+                datasets: [],
+                rows: drawerPayload.rows || []
+            };
+        };
+
+        app.generateDrawerInsight = async function(section, button) {
+            const payload = this.resolveDrawerInsightPayload(section);
+            const originalHtml = button ? button.innerHTML : '';
+
+            this.setExportButtonLoading(button, true);
+            this.setDrawerInsightState(true, '<p>Sedang menyiapkan penjelasan otomatis dari AI...</p>');
+
+            try {
+                const insightResponse = await this.requestSectionInsight(section, payload);
+                let html = this.formatInsightHtml(insightResponse.insight);
+
+                if (insightResponse.used_fallback && insightResponse.error_message) {
+                    html = '<p><strong>Gemini belum berhasil dipakai.</strong></p><p>' + app.escapeHtml(insightResponse.error_message) + '</p>' + html;
+                }
+
+                this.setDrawerInsightState(true, html);
+            } catch (error) {
+                console.error('Drawer insight gagal:', error);
+                this.setDrawerInsightState(true, this.formatInsightHtml(this.buildLocalInsight(payload)));
+            } finally {
+                this.setExportButtonLoading(button, false, originalHtml);
+            }
         };
 
         app.openKarisidenanChartDetail = function(section) {

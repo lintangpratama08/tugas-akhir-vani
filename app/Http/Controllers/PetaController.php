@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\DashboardInsightService;
 use App\Services\PetaDashboardService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -10,10 +11,12 @@ use Throwable;
 class PetaController extends Controller
 {
     protected $petaDashboardService;
+    protected $dashboardInsightService;
 
-    public function __construct(PetaDashboardService $petaDashboardService)
+    public function __construct(PetaDashboardService $petaDashboardService, DashboardInsightService $dashboardInsightService)
     {
         $this->petaDashboardService = $petaDashboardService;
+        $this->dashboardInsightService = $dashboardInsightService;
     }
 
     public function index()
@@ -77,6 +80,30 @@ class PetaController extends Controller
             $this->reportBackendException($exception, 'peta.export');
 
             return response($this->buildBackendMessage($exception, 'Export gagal.'), 503);
+        }
+    }
+
+    public function generate_chart_insight(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'section' => 'nullable|string|max:100',
+                'title' => 'nullable|string|max:255',
+                'description' => 'nullable|string|max:1000',
+                'scope_label' => 'nullable|string|max:255',
+                'filters' => 'nullable|array',
+                'labels' => 'nullable|array',
+                'datasets' => 'nullable|array',
+                'rows' => 'nullable|array',
+            ]);
+
+            return response()->json($this->dashboardInsightService->generate($validated));
+        } catch (Throwable $exception) {
+            $this->reportBackendException($exception, 'peta.chart_insight');
+
+            return response()->json([
+                'message' => $this->buildBackendMessage($exception, 'Insight chart gagal dibuat.'),
+            ], 503);
         }
     }
 
