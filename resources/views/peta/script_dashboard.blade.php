@@ -171,6 +171,8 @@
 
         app.drawLineValueLabels = function(chartInstance, sourceChart, primaryFormat) {
             const ctx = chartInstance.ctx;
+            const chartArea = chartInstance.chartArea || {};
+            const occupied = [];
 
             chartInstance.data.datasets.forEach((dataset, datasetIndex) => {
                 const meta = chartInstance.getDatasetMeta(datasetIndex);
@@ -186,8 +188,50 @@
 
                     const point = pointElement.getProps(['x', 'y'], true);
                     const label = app.formatCompactValue(rawValue, format);
-                    app.drawCanvasValueTag(ctx, label, point.x, point.y - 16, {
-                        textAlign: 'center'
+                    const textWidth = ctx.measureText(label).width;
+                    const preferredOffset = datasetIndex % 2 === 0 ? -18 : 18;
+                    let labelY = point.y + preferredOffset;
+                    const minY = (chartArea.top || 0) + 14;
+                    const maxY = (chartArea.bottom || point.y) - 10;
+
+                    if (labelY < minY) {
+                        labelY = point.y + 18;
+                    }
+
+                    if (labelY > maxY) {
+                        labelY = point.y - 18;
+                    }
+
+                    let labelBox = {
+                        left: point.x - (textWidth / 2) - 4,
+                        right: point.x + (textWidth / 2) + 4,
+                        top: labelY - 8,
+                        bottom: labelY + 8
+                    };
+
+                    occupied.forEach(function(box) {
+                        const overlapsX = labelBox.left < box.right && labelBox.right > box.left;
+                        const overlapsY = labelBox.top < box.bottom && labelBox.bottom > box.top;
+
+                        if (overlapsX && overlapsY) {
+                            labelY = box.bottom + 10;
+                            if (labelY > maxY) {
+                                labelY = box.top - 10;
+                            }
+
+                            labelBox = {
+                                left: point.x - (textWidth / 2) - 4,
+                                right: point.x + (textWidth / 2) + 4,
+                                top: labelY - 8,
+                                bottom: labelY + 8
+                            };
+                        }
+                    });
+
+                    occupied.push(labelBox);
+                    app.drawCanvasValueTag(ctx, label, point.x, labelY, {
+                        textAlign: 'center',
+                        font: '700 10px "Segoe UI", sans-serif'
                     });
                 });
             });
@@ -199,6 +243,16 @@
             const sourceDataset = sourceChart.datasets[0] || {};
             const values = sourceDataset.data || [];
             const format = sourceDataset.format || primaryFormat;
+            const canvasWidth = chartInstance.width || 320;
+            const canvasHeight = chartInstance.height || 320;
+            const paddingX = 8;
+            const paddingY = 8;
+            const boxWidth = 90;
+            const boxHeight = 32;
+            const boxGap = 6;
+            const palette = chartInstance.data.datasets[0].backgroundColor || [];
+            const leftSide = [];
+            const rightSide = [];
 
             meta.data.forEach((arc, index) => {
                 const rawValue = values[index];
@@ -211,57 +265,88 @@
                 const radius = arc.outerRadius || 0;
                 const startX = arc.x + Math.cos(angle) * (radius - 4);
                 const startY = arc.y + Math.sin(angle) * (radius - 4);
-                const middleX = arc.x + Math.cos(angle) * (radius + 16);
-                const middleY = arc.y + Math.sin(angle) * (radius + 16);
+                const middleX = arc.x + Math.cos(angle) * (radius + 12);
+                const middleY = arc.y + Math.sin(angle) * (radius + 12);
                 const isRightSide = Math.cos(angle) >= 0;
-                const endX = middleX + (isRightSide ? 18 : -18);
-                const labelText = app.limitLabel(sourceChart.labels[index], 16);
-                const valueText = app.formatCompactValue(rawValue, format);
-                const boxWidth = 108;
-                const boxHeight = 34;
-                const boxX = isRightSide ? endX + 6 : endX - boxWidth - 6;
-                const boxY = middleY - (boxHeight / 2);
-                const dotX = boxX + 12;
-                const textX = boxX + 22;
-                const palette = chartInstance.data.datasets[0].backgroundColor || [];
-                const accent = Array.isArray(palette) ? (palette[index] || '#2563eb') : '#2563eb';
 
-                ctx.save();
-                ctx.strokeStyle = 'rgba(59, 81, 110, 0.36)';
-                ctx.lineWidth = 1.15;
-                ctx.beginPath();
-                ctx.moveTo(startX, startY);
-                ctx.lineTo(middleX, middleY);
-                ctx.lineTo(isRightSide ? boxX : boxX + boxWidth, middleY);
-                ctx.stroke();
-                ctx.restore();
+                const item = {
+                    startX: startX,
+                    startY: startY,
+                    middleX: middleX,
+                    middleY: middleY,
+                    isRightSide: isRightSide,
+                    labelText: app.limitLabel(sourceChart.labels[index], 12),
+                    valueText: app.formatCompactValue(rawValue, format),
+                    accent: Array.isArray(palette) ? (palette[index] || '#2563eb') : '#2563eb'
+                };
 
-                app.drawRoundedRect(ctx, boxX, boxY, boxWidth, boxHeight, 12, 'rgba(255, 255, 255, 0.96)', 'rgba(205, 214, 226, 0.95)');
-
-                ctx.save();
-                ctx.fillStyle = accent;
-                ctx.beginPath();
-                ctx.arc(dotX, boxY + 12, 4, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.fillStyle = '#18314f';
-                ctx.font = '700 10px "Segoe UI", sans-serif';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(labelText, textX, boxY + 12);
-
-                ctx.fillStyle = '#5b6c80';
-                ctx.font = '600 10px "Segoe UI", sans-serif';
-                ctx.fillText(valueText, textX, boxY + 24);
-                ctx.restore();
+                if (isRightSide) {
+                    rightSide.push(item);
+                } else {
+                    leftSide.push(item);
+                }
             });
-        };
 
+            const placeSide = function(items, isRightSide) {
+                items.sort(function(a, b) {
+                    return a.middleY - b.middleY;
+                });
+
+                let previousBottom = paddingY - boxGap;
+
+                items.forEach(function(item) {
+                    let boxY = item.middleY - (boxHeight / 2);
+                    boxY = Math.max(boxY, previousBottom + boxGap);
+                    boxY = Math.min(boxY, canvasHeight - boxHeight - paddingY);
+
+                    const rawBoxX = isRightSide ? item.middleX + 8 : item.middleX - boxWidth - 8;
+                    const boxX = Math.min(Math.max(rawBoxX, paddingX), canvasWidth - boxWidth - paddingX);
+                    const anchorX = isRightSide ? boxX : boxX + boxWidth;
+                    const dotX = boxX + 10;
+                    const textX = boxX + 20;
+
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(59, 81, 110, 0.32)';
+                    ctx.lineWidth = 1.05;
+                    ctx.beginPath();
+                    ctx.moveTo(item.startX, item.startY);
+                    ctx.lineTo(item.middleX, item.middleY);
+                    ctx.lineTo(anchorX, boxY + (boxHeight / 2));
+                    ctx.stroke();
+                    ctx.restore();
+
+                    app.drawRoundedRect(ctx, boxX, boxY, boxWidth, boxHeight, 12, 'rgba(255, 255, 255, 0.97)', 'rgba(209, 218, 231, 0.98)');
+
+                    ctx.save();
+                    ctx.fillStyle = item.accent;
+                    ctx.beginPath();
+                    ctx.arc(dotX, boxY + 11, 3.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#18314f';
+                    ctx.font = '700 9px "Segoe UI", sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(item.labelText, textX, boxY + 11);
+
+                    ctx.fillStyle = '#5b6c80';
+                    ctx.font = '600 9px "Segoe UI", sans-serif';
+                    ctx.fillText(item.valueText, textX, boxY + 22);
+                    ctx.restore();
+
+                    previousBottom = boxY + boxHeight;
+                });
+            };
+
+            placeSide(leftSide, false);
+            placeSide(rightSide, true);
+        };
         app.drawCanvasValueTag = function(ctx, text, x, y, options) {
             const textAlign = options && options.textAlign ? options.textAlign : 'center';
+            const font = options && options.font ? options.font : '700 11px "Segoe UI", sans-serif';
 
             ctx.save();
-            ctx.font = '700 11px "Segoe UI", sans-serif';
+            ctx.font = font;
             ctx.textAlign = textAlign;
             ctx.textBaseline = 'middle';
             ctx.fillStyle = '#18314f';
@@ -390,9 +475,9 @@
                     layout: {
                         padding: {
                             top: isLine ? 10 : 22,
-                            right: isPie ? 86 : (isHorizontal ? 72 : 14),
-                            bottom: isPie ? 24 : (isPopulationPerThousand ? 8 : 0),
-                            left: isPie ? 86 : 14
+                            right: isPie ? 96 : (isHorizontal ? 72 : 14),
+                            bottom: isPie ? 28 : (isPopulationPerThousand ? 8 : 0),
+                            left: isPie ? 96 : 14
                         }
                     },
                     scales: scales,
@@ -635,22 +720,22 @@
             const absolute = Math.abs(number);
 
             if (absolute >= 1000000000) {
-                return 'Rp ' + (number / 1000000000).toLocaleString('id-ID', {
+                return (number / 1000000000).toLocaleString('id-ID', {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 1
                 }) + ' M';
             }
 
             if (absolute >= 1000000) {
-                return 'Rp ' + (number / 1000000).toLocaleString('id-ID', {
+                return (number / 1000000).toLocaleString('id-ID', {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 1
                 }) + ' Jt';
             }
 
-            return 'Rp ' + number.toLocaleString('id-ID', {
+            return number.toLocaleString('id-ID', {
                 minimumFractionDigits: 0,
-                maximumFractionDigits: 0
+                maximumFractionDigits: 1
             });
         };
 
@@ -1362,6 +1447,10 @@
         app.bindDrawerEvents();
     })(window.PetaDashboardApp);
 </script>
+
+
+
+
 
 
 

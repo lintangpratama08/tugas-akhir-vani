@@ -255,7 +255,7 @@ class PetaDashboardService
                 ),
                 $this->makeChart(
                     'peringkat',
-                    $isRegionalScope ? '10 Wilayah PAD per Penduduk Tertinggi' : 'Peringkat Kinerja Jenis PAD',
+                    $isRegionalScope ? 'Wilayah PAD per Penduduk Tertinggi' : 'Peringkat Kinerja Jenis PAD',
                     $isRegionalScope
                         ? '10 wilayah dengan PAD per penduduk tertinggi pada filter aktif.'
                         : 'Perbandingan persentase tiap jenis PAD di wilayah yang dipilih.',
@@ -301,7 +301,7 @@ class PetaDashboardService
                 ),
                 $this->makeChart(
                     'kontribusi',
-                    $isRegionalScope ? '10 Wilayah Realisasi PAD Tertinggi' : 'Kontribusi Jenis PAD',
+                    $isRegionalScope ? 'Wilayah Realisasi PAD Tertinggi' : 'Kontribusi Jenis PAD',
                     $isRegionalScope
                         ? '10 wilayah dengan realisasi PAD tertinggi pada filter aktif.'
                         : 'Nilai realisasi terbesar per jenis PAD di wilayah aktif.',

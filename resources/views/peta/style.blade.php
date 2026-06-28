@@ -1155,6 +1155,10 @@
         min-height: 320px;
     }
 
+    .chart-card[data-drawer-section="komposisi"] .chart-canvas {
+        min-height: 380px;
+    }
+
     .charts-grid-detail {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -1287,6 +1291,14 @@
 
     .leaflet-top.leaflet-right {
         margin-top: 18px;
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 0.65rem;
+    }
+
+    .leaflet-top.leaflet-right .leaflet-control {
+        margin: 0;
     }
 
     .leaflet-control-layers {
@@ -2162,6 +2174,11 @@
 
         .leaflet-top.leaflet-right {
             margin-top: 12px;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 0.5rem;
+            flex-wrap: nowrap;
         }
 
         .dashboard-drawer {
@@ -2178,6 +2195,8 @@
         }
     }
 </style>
+
+
 
 
 
