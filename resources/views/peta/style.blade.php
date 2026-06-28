@@ -196,7 +196,9 @@
     .hero-carousel-backdrop {
         position: absolute;
         inset: 0;
-        background: linear-gradient(180deg, rgba(9, 10, 11, 0.08), rgba(9, 10, 11, 0.24));
+        background:
+            linear-gradient(180deg, rgba(10, 14, 18, 0.02), rgba(10, 14, 18, 0.14)),
+            radial-gradient(circle at 78% 26%, rgba(255, 221, 168, 0.16), transparent 24%);
         pointer-events: none;
     }
 
@@ -240,8 +242,8 @@
         position: absolute;
         inset: 0;
         background:
-            linear-gradient(90deg, rgba(17, 13, 10, 0.92) 0%, rgba(25, 17, 13, 0.82) 32%, rgba(47, 28, 17, 0.60) 58%, rgba(24, 18, 14, 0.72) 100%),
-            linear-gradient(180deg, rgba(18, 16, 14, 0.28), rgba(18, 16, 14, 0.78));
+            linear-gradient(90deg, rgba(18, 22, 28, 0.84) 0%, rgba(26, 34, 42, 0.68) 34%, rgba(43, 53, 64, 0.34) 68%, rgba(18, 24, 30, 0.52) 100%),
+            linear-gradient(180deg, rgba(255, 246, 233, 0.04), rgba(18, 16, 14, 0.54));
         pointer-events: none;
     }
 
@@ -340,9 +342,34 @@
     .hero-carousel-copy p {
         margin: 1rem 0 0;
         max-width: 650px;
-        color: rgba(255, 244, 231, 0.82);
+        color: rgba(255, 248, 238, 0.92);
         font-size: 1rem;
         line-height: 1.72;
+    }
+
+    .hero-guidebook-row {
+        margin-top: 1.2rem;
+    }
+
+    .hero-guidebook-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.8rem 1.15rem;
+        border-radius: 999px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(214, 161, 76, 0.22));
+        border: 1px solid rgba(255, 233, 201, 0.34);
+        color: #fff7ef;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 14px 26px rgba(15, 23, 42, 0.16);
+    }
+
+    .hero-guidebook-link:hover {
+        color: #ffffff;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(214, 161, 76, 0.30));
+        transform: translateY(-1px);
     }
 
     .hero-meta-row {
@@ -1287,6 +1314,37 @@
         color: #334155;
     }
 
+    .map-back-control.leaflet-bar {
+        border: 0;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 18px 32px rgba(15, 23, 42, 0.14);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 253, 0.96));
+    }
+
+    .map-back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-height: 44px;
+        padding: 0.72rem 0.95rem;
+        border: 0;
+        background: transparent;
+        color: #18314f;
+        font-size: 0.84rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .map-back-button:hover:not(:disabled) {
+        background: rgba(37, 99, 235, 0.08);
+    }
+
+    .map-back-button:disabled {
+        color: #94a3b8;
+        cursor: not-allowed;
+    }
+
     .map-floating-card {
         background: rgba(255, 255, 255, 0.97);
         border: 1px solid rgba(148, 163, 184, 0.18);
@@ -2120,3 +2178,6 @@
         }
     }
 </style>
+
+
+

@@ -255,9 +255,9 @@ class PetaDashboardService
                 ),
                 $this->makeChart(
                     'peringkat',
-                    $isRegionalScope ? 'PAD per Penduduk Tertinggi' : 'Peringkat Kinerja Jenis PAD',
+                    $isRegionalScope ? '10 Wilayah PAD per Penduduk Tertinggi' : 'Peringkat Kinerja Jenis PAD',
                     $isRegionalScope
-                        ? 'Wilayah diurutkan berdasarkan realisasi PAD per penduduk, sehingga wilayah dengan penduduk lebih kecil tetap bisa terlihat lebih efektif.'
+                        ? '10 wilayah dengan PAD per penduduk tertinggi pada filter aktif.'
                         : 'Perbandingan persentase tiap jenis PAD di wilayah yang dipilih.',
                     'bar',
                     $rankingWilayah->pluck('label')->all(),
@@ -301,9 +301,9 @@ class PetaDashboardService
                 ),
                 $this->makeChart(
                     'kontribusi',
-                    $isRegionalScope ? 'Realisasi PAD Tertinggi' : 'Kontribusi Jenis PAD',
+                    $isRegionalScope ? '10 Wilayah Realisasi PAD Tertinggi' : 'Kontribusi Jenis PAD',
                     $isRegionalScope
-                        ? 'Wilayah diurutkan berdasarkan total realisasi PAD untuk menunjukkan kontributor nominal terbesar.'
+                        ? '10 wilayah dengan realisasi PAD tertinggi pada filter aktif.'
                         : 'Nilai realisasi terbesar per jenis PAD di wilayah aktif.',
                     'bar',
                     $kontribusi->pluck('label')->all(),
@@ -1370,3 +1370,5 @@ class PetaDashboardService
             ->value('nama_karisidenan') ?: 'Karisidenan';
     }
 }
+
+

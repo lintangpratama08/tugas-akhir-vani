@@ -22,8 +22,12 @@
                             <div class="hero-carousel-copy">
                                 <span class="hero-kicker"><i class="bi bi-stars"></i> Dashboard unggulan Jawa Timur</span>
                                 <h1>Memetakan Kinerja PAD Jawa Timur dengan Visual yang Lebih Tajam dan Modern.</h1>
-                                <p>Gabungan peta interaktif, analisis realisasi, dan pemantauan wilayah aktif untuk membantu
-                                    membaca arah Pendapatan Asli Daerah dengan lebih cepat.</p>
+                                <div class="hero-guidebook-row">
+                                    <a href="{{ asset('guidbook.pdf') }}" class="hero-guidebook-link" download>
+                                        <i class="bi bi-file-earmark-arrow-down"></i>
+                                        Download Guidebook
+                                    </a>
+                                </div>
                                 <div class="hero-meta-row">
                                     <span><i class="bi bi-map"></i> 38 kabupaten/kota</span>
                                     <span><i class="bi bi-bar-chart-line"></i> Insight anggaran dan realisasi</span>

@@ -117,6 +117,114 @@
             this.chartInstances[chart.key] = new Chart(canvas.getContext('2d'), this.buildChartConfig(chart));
         };
 
+        app.buildChartValueLabelPlugin = function(sourceChart, options) {
+            const appInstance = this;
+            const isPie = !!options.isPie;
+            const isHorizontal = !!options.isHorizontal;
+            const isLine = !!options.isLine;
+            const primaryFormat = options.primaryFormat || 'currency';
+
+            return {
+                id: 'valueLabels_' + sourceChart.key,
+                afterDatasetsDraw(chartInstance) {
+                    if (isLine) {
+                        return;
+                    }
+
+                    if (isPie) {
+                        appInstance.drawPieValueLabels(chartInstance, sourceChart, primaryFormat);
+                        return;
+                    }
+
+                    appInstance.drawBarValueLabels(chartInstance, sourceChart, primaryFormat, isHorizontal);
+                }
+            };
+        };
+
+        app.drawBarValueLabels = function(chartInstance, sourceChart, primaryFormat, isHorizontal) {
+            const ctx = chartInstance.ctx;
+
+            chartInstance.data.datasets.forEach((dataset, datasetIndex) => {
+                const meta = chartInstance.getDatasetMeta(datasetIndex);
+                const sourceDataset = sourceChart.datasets[datasetIndex] || {};
+                const format = sourceDataset.format || primaryFormat;
+
+                meta.data.forEach((element, dataIndex) => {
+                    const rawValue = sourceDataset.data[dataIndex];
+
+                    if (rawValue === null || rawValue === undefined || Number(rawValue) === 0) {
+                        return;
+                    }
+
+                    const label = appInstance.formatCompactValue(rawValue, format);
+                    const point = element.getProps(['x', 'y', 'base'], true);
+                    const x = isHorizontal ? point.x + 10 : point.x;
+                    const y = isHorizontal ? point.y : Math.min(point.y - 12, point.base - 12);
+
+                    ctx.save();
+                    ctx.font = '700 11px "Segoe UI", sans-serif';
+                    ctx.textAlign = isHorizontal ? 'left' : 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#18314f';
+                    ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+                    ctx.lineWidth = 4;
+                    ctx.strokeText(label, x, y);
+                    ctx.fillText(label, x, y);
+                    ctx.restore();
+                });
+            });
+        };
+
+        app.drawPieValueLabels = function(chartInstance, sourceChart, primaryFormat) {
+            const ctx = chartInstance.ctx;
+            const meta = chartInstance.getDatasetMeta(0);
+            const sourceDataset = sourceChart.datasets[0] || {};
+            const values = sourceDataset.data || [];
+            const format = sourceDataset.format || primaryFormat;
+
+            meta.data.forEach((arc, index) => {
+                const rawValue = values[index];
+
+                if (rawValue === null || rawValue === undefined || Number(rawValue) === 0) {
+                    return;
+                }
+
+                const angle = (arc.startAngle + arc.endAngle) / 2;
+                const radius = arc.outerRadius || 0;
+                const startX = arc.x + Math.cos(angle) * (radius - 4);
+                const startY = arc.y + Math.sin(angle) * (radius - 4);
+                const middleX = arc.x + Math.cos(angle) * (radius + 14);
+                const middleY = arc.y + Math.sin(angle) * (radius + 14);
+                const isRightSide = Math.cos(angle) >= 0;
+                const endX = middleX + (isRightSide ? 20 : -20);
+                const labelX = endX + (isRightSide ? 6 : -6);
+                const labelY = middleY;
+                const label = appInstance.limitLabel(sourceChart.labels[index], 16);
+                const valueText = appInstance.formatCompactValue(rawValue, format);
+
+                ctx.save();
+                ctx.strokeStyle = 'rgba(24, 49, 79, 0.46)';
+                ctx.lineWidth = 1.25;
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(middleX, middleY);
+                ctx.lineTo(endX, middleY);
+                ctx.stroke();
+
+                ctx.fillStyle = '#18314f';
+                ctx.font = '700 11px "Segoe UI", sans-serif';
+                ctx.textAlign = isRightSide ? 'left' : 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(label, labelX, labelY - 1);
+
+                ctx.fillStyle = '#64748b';
+                ctx.font = '600 10px "Segoe UI", sans-serif';
+                ctx.textBaseline = 'top';
+                ctx.fillText(valueText, labelX, labelY + 1);
+                ctx.restore();
+            });
+        };
+
         app.buildChartConfig = function(chart) {
             const appInstance = this;
             const isLine = chart.type === 'line';
@@ -198,6 +306,12 @@
 
             return {
                 type: chart.type,
+                plugins: [this.buildChartValueLabelPlugin(chart, {
+                    isPie: isPie,
+                    isHorizontal: isHorizontal,
+                    isLine: isLine,
+                    primaryFormat: primaryFormat
+                })],
                 data: {
                     labels: formattedLabels,
                     datasets: datasets
@@ -208,7 +322,10 @@
                     indexAxis: isHorizontal ? 'y' : 'x',
                     layout: {
                         padding: {
-                            bottom: isPopulationPerThousand ? 8 : 0
+                            top: isLine ? 10 : 22,
+                            right: isPie ? 86 : (isHorizontal ? 72 : 14),
+                            bottom: isPie ? 24 : (isPopulationPerThousand ? 8 : 0),
+                            left: isPie ? 86 : 14
                         }
                     },
                     scales: scales,
@@ -417,6 +534,33 @@
             }
 
             return value;
+        };
+
+        app.formatCompactValue = function(value, format) {
+            if (format === 'percent') {
+                const number = parseFloat(value || 0);
+                return number.toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 1
+                }) + '%';
+            }
+
+            if (format === 'currency') {
+                return this.formatShortCurrency(value);
+            }
+
+            const number = parseFloat(value || 0);
+            if (Math.abs(number) >= 1000000) {
+                return (number / 1000000).toLocaleString('id-ID', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 1
+                }) + ' Jt';
+            }
+
+            return number.toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
         };
 
         app.formatShortCurrency = function(value) {
@@ -1151,3 +1295,6 @@
         app.bindDrawerEvents();
     })(window.PetaDashboardApp);
 </script>
+
+
+

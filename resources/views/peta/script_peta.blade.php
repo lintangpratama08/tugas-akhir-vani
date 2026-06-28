@@ -24,6 +24,7 @@
         map: null,
         mapLayer: null,
         infoControlContent: null,
+        mapBackControlButton: null,
         hasInitialFit: false,
         chartInstances: {},
         baseLayers: {},
@@ -55,6 +56,7 @@
             }
 
             this.syncFilterMeta();
+            this.updateMapBackControl();
         },
 
         buildMapOverlayHtml: function() {
@@ -195,6 +197,109 @@
             }
 
             return html;
+        },
+
+        getBackNavigationConfig: function() {
+            if (this.state.kecamatan) {
+                return {
+                    label: 'Kembali ke kabupaten',
+                    nextState: {
+                        kecamatan: ''
+                    }
+                };
+            }
+
+            if (this.state.wilayah) {
+                return {
+                    label: this.state.karisidenan ? 'Kembali ke karisidenan' : 'Kembali ke Jawa Timur',
+                    nextState: {
+                        wilayah: '',
+                        kecamatan: ''
+                    }
+                };
+            }
+
+            if (this.state.karisidenan) {
+                return {
+                    label: 'Kembali ke Jawa Timur',
+                    nextState: {
+                        karisidenan: '',
+                        wilayah: '',
+                        kecamatan: ''
+                    }
+                };
+            }
+
+            if (this.state.mapMode === 'karisidenan') {
+                return {
+                    label: 'Kembali ke kabupaten',
+                    nextState: {
+                        mapMode: 'kabupaten',
+                        karisidenan: '',
+                        wilayah: '',
+                        kecamatan: ''
+                    }
+                };
+            }
+
+            return {
+                label: 'Kembali',
+                disabled: true
+            };
+        },
+
+        navigateBackMapView: function() {
+            const config = this.getBackNavigationConfig();
+
+            if (!config || config.disabled || !config.nextState) {
+                return;
+            }
+
+            Object.assign(this.state, config.nextState, {
+                infoTab: 'pad'
+            });
+            this.syncFilterMeta();
+            this.renderTopOverlay();
+            this.refreshAll();
+        },
+
+        updateMapBackControl: function() {
+            if (!this.mapBackControlButton) {
+                return;
+            }
+
+            const config = this.getBackNavigationConfig();
+            this.mapBackControlButton.disabled = !!config.disabled;
+            this.mapBackControlButton.setAttribute('aria-disabled', config.disabled ? 'true' : 'false');
+            this.mapBackControlButton.setAttribute('title', config.label || 'Kembali');
+            this.mapBackControlButton.innerHTML =
+                '<i class="bi bi-arrow-left"></i><span>' + this.escapeHtml(config.label || 'Kembali') + '</span>';
+        },
+
+        addMapBackControl: function() {
+            const app = this;
+
+            const backControl = L.control({
+                position: 'topright'
+            });
+
+            backControl.onAdd = function() {
+                const container = L.DomUtil.create('div', 'leaflet-bar map-back-control');
+                const button = L.DomUtil.create('button', 'map-back-button', container);
+                button.type = 'button';
+                button.setAttribute('aria-label', 'Kembali ke tampilan sebelumnya');
+                L.DomEvent.disableClickPropagation(container);
+                L.DomEvent.disableScrollPropagation(container);
+                L.DomEvent.on(button, 'click', function(event) {
+                    L.DomEvent.preventDefault(event);
+                    app.navigateBackMapView();
+                });
+                app.mapBackControlButton = button;
+                app.updateMapBackControl();
+                return container;
+            };
+
+            backControl.addTo(this.map);
         },
 
         bindFilterEvents: function() {
@@ -373,6 +478,7 @@
                 position: 'topright',
                 collapsed: true
             }).addTo(this.map);
+            this.addMapBackControl();
 
             const infoControl = L.control({
                 position: 'bottomright'
@@ -407,6 +513,7 @@
             }
 
             this.syncFilterMeta();
+            this.updateMapBackControl();
         },
 
         readFilterDraftState: function() {
@@ -1138,3 +1245,5 @@
         window.PetaDashboardApp.init();
     });
 </script>
+
+

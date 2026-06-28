@@ -19,14 +19,14 @@
             ? [
                 ['label' => 'Beranda', 'href' => route('peta.index')],
                 ['label' => 'Upload Data', 'href' => route('pad.import.index')],
-                ['label' => 'Informasi', 'href' => '#page_footer'],
+                ['label' => 'Informasi', 'href' => asset('guidbook.pdf'), 'download' => true],
             ]
             : [
                 ['label' => 'Beranda', 'href' => route('peta.index')],
                 ['label' => 'Peta', 'href' => '#peta'],
                 ['label' => 'Dashboard', 'href' => '#peta_dashboard_section'],
                 ['label' => 'Upload Data', 'href' => route('pad.import.index')],
-                ['label' => 'Informasi', 'href' => '#page_footer'],
+                ['label' => 'Informasi', 'href' => asset('guidbook.pdf'), 'download' => true],
             ];
     @endphp
     <nav class="topbar" id="governmentTopbar">
@@ -47,7 +47,8 @@
                 </button>
                 <div class="topbar-actions" id="topbarMenuPanel">
                     @foreach ($navLinks as $navLink)
-                        <a href="{{ $navLink['href'] }}" class="topbar-link">{{ $navLink['label'] }}</a>
+                        <a href="{{ $navLink['href'] }}" class="topbar-link"
+                            @if (!empty($navLink['download'])) download @endif>{{ $navLink['label'] }}</a>
                     @endforeach
                 </div>
             </div>
@@ -132,3 +133,4 @@
 </body>
 
 </html>
+
