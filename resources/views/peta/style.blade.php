@@ -198,7 +198,7 @@
         inset: 0;
         background:
             linear-gradient(180deg, rgba(10, 14, 18, 0.02), rgba(10, 14, 18, 0.14)),
-            radial-gradient(circle at 78% 26%, rgba(255, 221, 168, 0.16), transparent 24%);
+            radial-gradient(circle at 78% 26%, rgba(255, 221, 168, 0.16), transparent 44%);
         pointer-events: none;
     }
 

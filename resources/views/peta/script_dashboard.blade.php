@@ -127,12 +127,13 @@
             return {
                 id: 'valueLabels_' + sourceChart.key,
                 afterDatasetsDraw(chartInstance) {
-                    if (isLine) {
+                    if (isPie) {
+                        appInstance.drawPieValueLabels(chartInstance, sourceChart, primaryFormat);
                         return;
                     }
 
-                    if (isPie) {
-                        appInstance.drawPieValueLabels(chartInstance, sourceChart, primaryFormat);
+                    if (isLine) {
+                        appInstance.drawLineValueLabels(chartInstance, sourceChart, primaryFormat);
                         return;
                     }
 
@@ -158,19 +159,36 @@
 
                     const label = app.formatCompactValue(rawValue, format);
                     const point = element.getProps(['x', 'y', 'base'], true);
-                    const x = isHorizontal ? point.x + 10 : point.x;
-                    const y = isHorizontal ? point.y : Math.min(point.y - 12, point.base - 12);
+                    const x = isHorizontal ? point.x + 12 : point.x;
+                    const y = isHorizontal ? point.y : Math.min(point.y - 14, point.base - 14);
 
-                    ctx.save();
-                    ctx.font = '700 11px "Segoe UI", sans-serif';
-                    ctx.textAlign = isHorizontal ? 'left' : 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillStyle = '#18314f';
-                    ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-                    ctx.lineWidth = 4;
-                    ctx.strokeText(label, x, y);
-                    ctx.fillText(label, x, y);
-                    ctx.restore();
+                    app.drawCanvasValueTag(ctx, label, x, y, {
+                        textAlign: isHorizontal ? 'left' : 'center'
+                    });
+                });
+            });
+        };
+
+        app.drawLineValueLabels = function(chartInstance, sourceChart, primaryFormat) {
+            const ctx = chartInstance.ctx;
+
+            chartInstance.data.datasets.forEach((dataset, datasetIndex) => {
+                const meta = chartInstance.getDatasetMeta(datasetIndex);
+                const sourceDataset = sourceChart.datasets[datasetIndex] || {};
+                const format = sourceDataset.format || primaryFormat;
+
+                meta.data.forEach((pointElement, dataIndex) => {
+                    const rawValue = sourceDataset.data[dataIndex];
+
+                    if (rawValue === null || rawValue === undefined) {
+                        return;
+                    }
+
+                    const point = pointElement.getProps(['x', 'y'], true);
+                    const label = app.formatCompactValue(rawValue, format);
+                    app.drawCanvasValueTag(ctx, label, point.x, point.y - 16, {
+                        textAlign: 'center'
+                    });
                 });
             });
         };
@@ -193,38 +211,87 @@
                 const radius = arc.outerRadius || 0;
                 const startX = arc.x + Math.cos(angle) * (radius - 4);
                 const startY = arc.y + Math.sin(angle) * (radius - 4);
-                const middleX = arc.x + Math.cos(angle) * (radius + 14);
-                const middleY = arc.y + Math.sin(angle) * (radius + 14);
+                const middleX = arc.x + Math.cos(angle) * (radius + 16);
+                const middleY = arc.y + Math.sin(angle) * (radius + 16);
                 const isRightSide = Math.cos(angle) >= 0;
-                const endX = middleX + (isRightSide ? 20 : -20);
-                const labelX = endX + (isRightSide ? 6 : -6);
-                const labelY = middleY;
-                const label = app.limitLabel(sourceChart.labels[index], 16);
+                const endX = middleX + (isRightSide ? 18 : -18);
+                const labelText = app.limitLabel(sourceChart.labels[index], 16);
                 const valueText = app.formatCompactValue(rawValue, format);
+                const boxWidth = 108;
+                const boxHeight = 34;
+                const boxX = isRightSide ? endX + 6 : endX - boxWidth - 6;
+                const boxY = middleY - (boxHeight / 2);
+                const dotX = boxX + 12;
+                const textX = boxX + 22;
+                const palette = chartInstance.data.datasets[0].backgroundColor || [];
+                const accent = Array.isArray(palette) ? (palette[index] || '#2563eb') : '#2563eb';
 
                 ctx.save();
-                ctx.strokeStyle = 'rgba(24, 49, 79, 0.46)';
-                ctx.lineWidth = 1.25;
+                ctx.strokeStyle = 'rgba(59, 81, 110, 0.36)';
+                ctx.lineWidth = 1.15;
                 ctx.beginPath();
                 ctx.moveTo(startX, startY);
                 ctx.lineTo(middleX, middleY);
-                ctx.lineTo(endX, middleY);
+                ctx.lineTo(isRightSide ? boxX : boxX + boxWidth, middleY);
                 ctx.stroke();
+                ctx.restore();
+
+                app.drawRoundedRect(ctx, boxX, boxY, boxWidth, boxHeight, 12, 'rgba(255, 255, 255, 0.96)', 'rgba(205, 214, 226, 0.95)');
+
+                ctx.save();
+                ctx.fillStyle = accent;
+                ctx.beginPath();
+                ctx.arc(dotX, boxY + 12, 4, 0, Math.PI * 2);
+                ctx.fill();
 
                 ctx.fillStyle = '#18314f';
-                ctx.font = '700 11px "Segoe UI", sans-serif';
-                ctx.textAlign = isRightSide ? 'left' : 'right';
-                ctx.textBaseline = 'bottom';
-                ctx.fillText(label, labelX, labelY - 1);
+                ctx.font = '700 10px "Segoe UI", sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(labelText, textX, boxY + 12);
 
-                ctx.fillStyle = '#64748b';
+                ctx.fillStyle = '#5b6c80';
                 ctx.font = '600 10px "Segoe UI", sans-serif';
-                ctx.textBaseline = 'top';
-                ctx.fillText(valueText, labelX, labelY + 1);
+                ctx.fillText(valueText, textX, boxY + 24);
                 ctx.restore();
             });
         };
 
+        app.drawCanvasValueTag = function(ctx, text, x, y, options) {
+            const textAlign = options && options.textAlign ? options.textAlign : 'center';
+
+            ctx.save();
+            ctx.font = '700 11px "Segoe UI", sans-serif';
+            ctx.textAlign = textAlign;
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#18314f';
+            ctx.strokeStyle = 'rgba(255,255,255,0.94)';
+            ctx.lineWidth = 4;
+            ctx.strokeText(text, x, y);
+            ctx.fillText(text, x, y);
+            ctx.restore();
+        };
+
+        app.drawRoundedRect = function(ctx, x, y, width, height, radius, fillStyle, strokeStyle) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            ctx.fillStyle = fillStyle;
+            ctx.fill();
+            ctx.strokeStyle = strokeStyle;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        };
         app.buildChartConfig = function(chart) {
             const appInstance = this;
             const isLine = chart.type === 'line';
@@ -1295,6 +1362,8 @@
         app.bindDrawerEvents();
     })(window.PetaDashboardApp);
 </script>
+
+
 
 
 
