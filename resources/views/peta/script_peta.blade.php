@@ -202,7 +202,7 @@
         getBackNavigationConfig: function() {
             if (this.state.kecamatan) {
                 return {
-                    label: 'Kembali ke kabupaten',
+                    label: 'Kembali',
                     nextState: {
                         kecamatan: ''
                     }
@@ -211,7 +211,7 @@
 
             if (this.state.wilayah) {
                 return {
-                    label: this.state.karisidenan ? 'Kembali ke karisidenan' : 'Kembali ke Jawa Timur',
+                    label: 'Kembali',
                     nextState: {
                         wilayah: '',
                         kecamatan: ''
@@ -221,7 +221,7 @@
 
             if (this.state.karisidenan) {
                 return {
-                    label: 'Kembali ke Jawa Timur',
+                    label: 'Kembali',
                     nextState: {
                         karisidenan: '',
                         wilayah: '',
@@ -232,7 +232,7 @@
 
             if (this.state.mapMode === 'karisidenan') {
                 return {
-                    label: 'Kembali ke kabupaten',
+                    label: 'Kembali',
                     nextState: {
                         mapMode: 'kabupaten',
                         karisidenan: '',
@@ -1245,5 +1245,6 @@
         window.PetaDashboardApp.init();
     });
 </script>
+
 
 

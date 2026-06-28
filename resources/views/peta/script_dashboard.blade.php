@@ -156,7 +156,7 @@
                         return;
                     }
 
-                    const label = appInstance.formatCompactValue(rawValue, format);
+                    const label = app.formatCompactValue(rawValue, format);
                     const point = element.getProps(['x', 'y', 'base'], true);
                     const x = isHorizontal ? point.x + 10 : point.x;
                     const y = isHorizontal ? point.y : Math.min(point.y - 12, point.base - 12);
@@ -199,8 +199,8 @@
                 const endX = middleX + (isRightSide ? 20 : -20);
                 const labelX = endX + (isRightSide ? 6 : -6);
                 const labelY = middleY;
-                const label = appInstance.limitLabel(sourceChart.labels[index], 16);
-                const valueText = appInstance.formatCompactValue(rawValue, format);
+                const label = app.limitLabel(sourceChart.labels[index], 16);
+                const valueText = app.formatCompactValue(rawValue, format);
 
                 ctx.save();
                 ctx.strokeStyle = 'rgba(24, 49, 79, 0.46)';
@@ -1295,6 +1295,7 @@
         app.bindDrawerEvents();
     })(window.PetaDashboardApp);
 </script>
+
 
 
 
